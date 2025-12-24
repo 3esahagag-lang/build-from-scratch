@@ -136,8 +136,12 @@ export default function Layout({ children }: LayoutProps) {
         تم تطويره محليًا بواسطة <span className="font-bold text-foreground">عيسى</span>
       </footer>
 
-      {/* Mobile Bottom Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50">
+      {/* Mobile Bottom Nav - Always visible on mobile */}
+      <nav 
+        key={`bottom-nav-${location.pathname}`}
+        className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 safe-area-inset-bottom"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
         <div className="flex justify-around py-2">
           {navItems.slice(0, 5).map((item) => {
             const Icon = item.icon;
