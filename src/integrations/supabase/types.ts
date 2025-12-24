@@ -50,6 +50,41 @@ export type Database = {
         }
         Relationships: []
       }
+      fixed_number_transfers: {
+        Row: {
+          amount: number
+          created_at: string
+          fixed_number_id: string
+          id: string
+          notes: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          fixed_number_id: string
+          id?: string
+          notes?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          fixed_number_id?: string
+          id?: string
+          notes?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixed_number_transfers_fixed_number_id_fkey"
+            columns: ["fixed_number_id"]
+            isOneToOne: false
+            referencedRelation: "fixed_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fixed_numbers: {
         Row: {
           created_at: string | null
