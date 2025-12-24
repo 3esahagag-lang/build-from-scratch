@@ -55,19 +55,18 @@ export default function Transfers() {
     enabled: !!user,
   });
 
-  // Fetch monthly usage for fixed numbers
+  // Fetch monthly usage for fixed numbers from fixed_number_transfers table
   const { data: monthlyUsage } = useQuery({
-    queryKey: ["monthly-usage", user?.id],
+    queryKey: ["fixed-number-monthly-usage", user?.id],
     queryFn: async () => {
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
 
       const { data, error } = await supabase
-        .from("transfers")
+        .from("fixed_number_transfers")
         .select("fixed_number_id, amount")
-        .gte("created_at", startOfMonth.toISOString())
-        .not("fixed_number_id", "is", null);
+        .gte("created_at", startOfMonth.toISOString());
 
       if (error) throw error;
       
@@ -82,7 +81,7 @@ export default function Transfers() {
     enabled: !!user,
   });
 
-  // Add transfer mutation
+  // Add transfer mutation (for regular transfers)
   const addTransfer = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("transfers").insert({
@@ -90,21 +89,55 @@ export default function Transfers() {
         amount: parseFloat(amount),
         type,
         notes: notes || null,
-        fixed_number_id: fixedNumberId || null,
+        fixed_number_id: null, // Regular transfers don't use fixed numbers anymore
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transfers"] });
-      queryClient.invalidateQueries({ queryKey: ["monthly-usage"] });
       queryClient.invalidateQueries({ queryKey: ["today-stats"] });
       toast({ title: "تم تسجيل التحويل بنجاح" });
       setAmount("");
       setNotes("");
-      setFixedNumberId("");
     },
     onError: () => {
       toast({ title: "حدث خطأ", variant: "destructive" });
+    },
+  });
+
+  // Add fixed number transfer mutation (separate table with limit enforcement)
+  const addFixedNumberTransfer = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("fixed_number_transfers").insert({
+        user_id: user!.id,
+        fixed_number_id: fixedNumberId,
+        amount: parseFloat(amount),
+        notes: notes || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage"] });
+      queryClient.invalidateQueries({ queryKey: ["transfers"] });
+      queryClient.invalidateQueries({ queryKey: ["today-stats"] });
+      toast({ title: "تم تسجيل التحويل على الرقم الثابت بنجاح" });
+      setAmount("");
+      setNotes("");
+      setFixedNumberId("");
+    },
+    onError: (error: Error) => {
+      // Parse the error message for limit exceeded
+      const errorMessage = error.message || "";
+      if (errorMessage.includes("LIMIT_EXCEEDED")) {
+        const arabicMessage = errorMessage.split("LIMIT_EXCEEDED:")[1] || "تم تجاوز الحد الشهري للتحويلات";
+        toast({ 
+          title: "تجاوز الحد الشهري",
+          description: arabicMessage,
+          variant: "destructive" 
+        });
+      } else {
+        toast({ title: "حدث خطأ", variant: "destructive" });
+      }
     },
   });
 
@@ -138,7 +171,29 @@ export default function Transfers() {
       toast({ title: "أدخل مبلغاً صحيحاً", variant: "destructive" });
       return;
     }
-    addTransfer.mutate();
+    
+    // Check if a fixed number is selected - use separate table
+    if (fixedNumberId) {
+      // Client-side limit check for better UX
+      const selectedNumber = fixedNumbers?.find(fn => fn.id === fixedNumberId);
+      const currentUsage = monthlyUsage?.[fixedNumberId] || 0;
+      const limit = Number(selectedNumber?.monthly_limit) || 0;
+      const newAmount = parseFloat(amount);
+      
+      if (limit > 0 && (currentUsage + newAmount) > limit) {
+        const remaining = Math.max(0, limit - currentUsage);
+        toast({ 
+          title: "تجاوز الحد الشهري",
+          description: `الحد: ${limit} | المستخدم: ${currentUsage} | المتبقي: ${remaining}`,
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      addFixedNumberTransfer.mutate();
+    } else {
+      addTransfer.mutate();
+    }
   };
 
   const validatePhoneNumber = (value: string) => {
@@ -322,12 +377,12 @@ export default function Transfers() {
 
           <Button
             type="submit"
-            disabled={addTransfer.isPending}
+            disabled={addTransfer.isPending || addFixedNumberTransfer.isPending}
             className={`w-full h-14 text-lg action-button ${
               type === "income" ? "bg-income hover:bg-income/90" : "bg-expense hover:bg-expense/90"
             }`}
           >
-            {addTransfer.isPending ? "جاري الحفظ..." : "تسجيل"}
+            {(addTransfer.isPending || addFixedNumberTransfer.isPending) ? "جاري الحفظ..." : "تسجيل"}
           </Button>
         </form>
       </div>
