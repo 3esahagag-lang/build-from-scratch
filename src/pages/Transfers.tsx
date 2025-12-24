@@ -12,8 +12,9 @@ import {
   TrendingUp, 
   TrendingDown, 
   Plus,
-  Hash,
-  X
+  Phone,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import {
   Dialog,
@@ -22,13 +23,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import FixedNumberCard from "@/components/FixedNumberCard";
 
 export default function Transfers() {
   const { user } = useAuth();
@@ -39,10 +34,11 @@ export default function Transfers() {
   const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
   const [fixedNumberId, setFixedNumberId] = useState<string>("");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [newFixedNumber, setNewFixedNumber] = useState("");
+  const [newPhoneNumber, setNewPhoneNumber] = useState("");
+  const [newFixedName, setNewFixedName] = useState("");
   const [newFixedLimit, setNewFixedLimit] = useState("");
   const [fixedNumberDialogOpen, setFixedNumberDialogOpen] = useState(false);
+  const [showAllNumbers, setShowAllNumbers] = useState(false);
 
   // Fetch fixed numbers
   const { data: fixedNumbers } = useQuery({
@@ -106,7 +102,6 @@ export default function Transfers() {
       setAmount("");
       setNotes("");
       setFixedNumberId("");
-      setDialogOpen(false);
     },
     onError: () => {
       toast({ title: "حدث خطأ", variant: "destructive" });
@@ -118,17 +113,22 @@ export default function Transfers() {
     mutationFn: async () => {
       const { error } = await supabase.from("fixed_numbers").insert({
         user_id: user!.id,
-        name: newFixedNumber,
+        name: newFixedName || newPhoneNumber,
+        phone_number: newPhoneNumber,
         monthly_limit: parseFloat(newFixedLimit) || 0,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fixed-numbers"] });
-      toast({ title: "تم إضافة الرقم الثابت" });
-      setNewFixedNumber("");
+      toast({ title: "تم إضافة الرقم بنجاح" });
+      setNewPhoneNumber("");
+      setNewFixedName("");
       setNewFixedLimit("");
       setFixedNumberDialogOpen(false);
+    },
+    onError: () => {
+      toast({ title: "حدث خطأ - تأكد من صحة الرقم", variant: "destructive" });
     },
   });
 
@@ -140,6 +140,15 @@ export default function Transfers() {
     }
     addTransfer.mutate();
   };
+
+  const validatePhoneNumber = (value: string) => {
+    // Only allow digits and max 11 characters
+    const cleaned = value.replace(/\D/g, "").slice(0, 11);
+    setNewPhoneNumber(cleaned);
+  };
+
+  const isValidPhone = newPhoneNumber.length === 11;
+  const displayedNumbers = showAllNumbers ? fixedNumbers : fixedNumbers?.slice(0, 3);
 
   return (
     <Layout>
@@ -194,31 +203,50 @@ export default function Transfers() {
               />
             </div>
 
-            <div className="space-y-2">
+            {/* Fixed Numbers Section */}
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label>رقم ثابت (اختياري)</Label>
+                <Label className="flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  أرقام الهواتف الثابتة
+                </Label>
                 <Dialog open={fixedNumberDialogOpen} onOpenChange={setFixedNumberDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button type="button" variant="ghost" size="sm" className="gap-1">
+                    <Button type="button" variant="outline" size="sm" className="gap-1">
                       <Plus className="h-4 w-4" />
-                      إضافة
+                      إضافة رقم
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>إضافة رقم ثابت</DialogTitle>
+                      <DialogTitle>إضافة رقم هاتف ثابت</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label>الاسم</Label>
+                        <Label>رقم الهاتف (11 رقم)</Label>
                         <Input
-                          placeholder="مثال: إيجار، كهرباء..."
-                          value={newFixedNumber}
-                          onChange={(e) => setNewFixedNumber(e.target.value)}
+                          type="tel"
+                          placeholder="01xxxxxxxxx"
+                          value={newPhoneNumber}
+                          onChange={(e) => validatePhoneNumber(e.target.value)}
+                          className="text-center font-mono text-lg"
+                          dir="ltr"
+                          maxLength={11}
+                        />
+                        <p className="text-xs text-muted-foreground text-center">
+                          {newPhoneNumber.length}/11 رقم
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>اسم مميز (اختياري)</Label>
+                        <Input
+                          placeholder="مثال: محمد أحمد"
+                          value={newFixedName}
+                          onChange={(e) => setNewFixedName(e.target.value)}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>الحد الشهري</Label>
+                        <Label>الحد الشهري للتحويلات</Label>
                         <Input
                           type="number"
                           placeholder="0"
@@ -226,74 +254,70 @@ export default function Transfers() {
                           onChange={(e) => setNewFixedLimit(e.target.value)}
                           dir="ltr"
                         />
+                        <p className="text-xs text-muted-foreground">
+                          يتجدد تلقائياً في بداية كل شهر
+                        </p>
                       </div>
                       <Button
                         onClick={() => addFixedNumber.mutate()}
-                        disabled={!newFixedNumber}
+                        disabled={!isValidPhone || addFixedNumber.isPending}
                         className="w-full"
                       >
-                        إضافة
+                        {addFixedNumber.isPending ? "جاري الإضافة..." : "إضافة الرقم"}
                       </Button>
                     </div>
                   </DialogContent>
                 </Dialog>
               </div>
-              <Select value={fixedNumberId} onValueChange={setFixedNumberId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="اختر رقماً ثابتاً" />
-                </SelectTrigger>
-                <SelectContent>
-                  {fixedNumbers?.map((fn) => {
+
+              {/* Fixed Numbers List */}
+              {fixedNumbers && fixedNumbers.length > 0 ? (
+                <div className="space-y-2">
+                  {displayedNumbers?.map((fn) => {
                     const used = monthlyUsage?.[fn.id] || 0;
                     const limit = Number(fn.monthly_limit);
-                    const percentage = limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
                     
                     return (
-                      <SelectItem key={fn.id} value={fn.id}>
-                        <div className="flex items-center gap-2">
-                          <Hash className="h-4 w-4" />
-                          <span>{fn.name}</span>
-                          {limit > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                              ({percentage.toFixed(0)}%)
-                            </span>
-                          )}
-                        </div>
-                      </SelectItem>
+                      <FixedNumberCard
+                        key={fn.id}
+                        phoneNumber={fn.phone_number || fn.name}
+                        name={fn.phone_number ? fn.name : ""}
+                        used={used}
+                        limit={limit}
+                        isSelected={fixedNumberId === fn.id}
+                        onSelect={() => setFixedNumberId(fixedNumberId === fn.id ? "" : fn.id)}
+                      />
                     );
                   })}
-                </SelectContent>
-              </Select>
+                  
+                  {fixedNumbers.length > 3 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => setShowAllNumbers(!showAllNumbers)}
+                    >
+                      {showAllNumbers ? (
+                        <>
+                          <ChevronUp className="h-4 w-4 ml-1" />
+                          عرض أقل
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="h-4 w-4 ml-1" />
+                          عرض الكل ({fixedNumbers.length})
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-muted-foreground text-sm">
+                  لا توجد أرقام مسجلة، أضف رقماً جديداً
+                </div>
+              )}
             </div>
-
-            {/* Progress bar for selected fixed number */}
-            {fixedNumberId && (() => {
-              const fn = fixedNumbers?.find(f => f.id === fixedNumberId);
-              const used = monthlyUsage?.[fixedNumberId] || 0;
-              const limit = Number(fn?.monthly_limit) || 0;
-              const percentage = limit > 0 ? Math.min((used / limit) * 100, 100) : 0;
-              
-              if (limit > 0) {
-                return (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">الاستخدام الشهري</span>
-                      <span>{used.toLocaleString()} / {limit.toLocaleString()}</span>
-                    </div>
-                    <div className="progress-bar">
-                      <div 
-                        className="progress-fill" 
-                        style={{ 
-                          width: `${percentage}%`,
-                          background: percentage >= 100 ? 'hsl(var(--destructive))' : undefined
-                        }} 
-                      />
-                    </div>
-                  </div>
-                );
-              }
-              return null;
-            })()}
           </div>
 
           <Button
