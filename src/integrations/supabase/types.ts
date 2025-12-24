@@ -270,7 +270,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_fixed_number_monthly_usage: {
+        Args: { _fixed_number_id: string; _user_id: string }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
