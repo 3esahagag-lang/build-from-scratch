@@ -1,7 +1,8 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { 
   Home, 
   ArrowLeftRight, 
@@ -13,7 +14,6 @@ import {
   Menu,
   X
 } from "lucide-react";
-import { useState } from "react";
 
 interface LayoutProps {
   children: ReactNode;
@@ -64,6 +64,7 @@ export default function Layout({ children }: LayoutProps) {
                 </Link>
               );
             })}
+            <ThemeToggle />
             <Button
               variant="ghost"
               size="sm"
