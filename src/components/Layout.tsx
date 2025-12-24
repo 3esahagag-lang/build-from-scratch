@@ -110,14 +110,17 @@ export default function Layout({ children }: LayoutProps) {
                   </Link>
                 );
               })}
-              <Button
-                variant="ghost"
-                onClick={signOut}
-                className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive"
-              >
-                <LogOut className="h-5 w-5" />
-                تسجيل الخروج
-              </Button>
+              <div className="flex items-center justify-between pt-2 border-t border-border">
+                <ThemeToggle />
+                <Button
+                  variant="ghost"
+                  onClick={signOut}
+                  className="gap-2 text-muted-foreground hover:text-destructive"
+                >
+                  <LogOut className="h-5 w-5" />
+                  تسجيل الخروج
+                </Button>
+              </div>
             </div>
           </nav>
         )}
