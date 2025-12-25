@@ -16,6 +16,8 @@ import TransfersRecords from "./pages/records/TransfersRecords";
 import ProductsRecords from "./pages/records/ProductsRecords";
 import DebtsRecords from "./pages/records/DebtsRecords";
 import Reports from "./pages/Reports";
+import SellProducts from "./pages/SellProducts";
+import SettleDebts from "./pages/SettleDebts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -110,6 +112,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Debts />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sell"
+        element={
+          <ProtectedRoute>
+            <SellProducts />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settle-debts"
+        element={
+          <ProtectedRoute>
+            <SettleDebts />
           </ProtectedRoute>
         }
       />

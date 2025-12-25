@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -9,13 +8,8 @@ import {
   ShoppingCart,
   Wallet
 } from "lucide-react";
-import SellProductsDrawer from "@/components/SellProductsDrawer";
-import PayDebtsDrawer from "@/components/PayDebtsDrawer";
 
 export default function Dashboard() {
-  const [sellDrawerOpen, setSellDrawerOpen] = useState(false);
-  const [payDebtsDrawerOpen, setPayDebtsDrawerOpen] = useState(false);
-
   return (
     <Layout>
       <div className="space-y-6 pb-20 md:pb-0">
@@ -31,22 +25,24 @@ export default function Dashboard() {
           
           <div className="grid gap-4 animate-slide-up" style={{ animationDelay: "50ms" }}>
             {/* Sell Products Action */}
-            <Button
-              onClick={() => setSellDrawerOpen(true)}
-              className="w-full h-24 text-xl font-bold bg-gradient-to-l from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl"
-            >
-              <ShoppingCart className="h-8 w-8 ml-4" />
-              بيع بضاعتك
-            </Button>
+            <Link to="/sell">
+              <Button
+                className="w-full h-24 text-xl font-bold bg-gradient-to-l from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl"
+              >
+                <ShoppingCart className="h-8 w-8 ml-4" />
+                بيع بضاعتك
+              </Button>
+            </Link>
             
             {/* Pay Debts Action */}
-            <Button
-              onClick={() => setPayDebtsDrawerOpen(true)}
-              className="w-full h-24 text-xl font-bold bg-gradient-to-l from-warning to-warning/80 hover:from-warning/90 hover:to-warning/70 text-warning-foreground shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl"
-            >
-              <Wallet className="h-8 w-8 ml-4" />
-              سدّد سلفتك
-            </Button>
+            <Link to="/settle-debts">
+              <Button
+                className="w-full h-24 text-xl font-bold bg-gradient-to-l from-warning to-warning/80 hover:from-warning/90 hover:to-warning/70 text-warning-foreground shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl"
+              >
+                <Wallet className="h-8 w-8 ml-4" />
+                سدّد سلفتك
+              </Button>
+            </Link>
           </div>
         </div>
 
@@ -87,12 +83,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
-      {/* Sell Products Drawer */}
-      <SellProductsDrawer open={sellDrawerOpen} onOpenChange={setSellDrawerOpen} />
-      
-      {/* Pay Debts Drawer */}
-      <PayDebtsDrawer open={payDebtsDrawerOpen} onOpenChange={setPayDebtsDrawerOpen} />
     </Layout>
   );
 }
