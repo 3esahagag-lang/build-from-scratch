@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowRight, TrendingUp, TrendingDown, ArrowUpCircle, ArrowDownCircle, Hash } from "lucide-react";
+import { ArrowRight, TrendingUp, ArrowUpCircle, Hash, Percent } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function TransfersRecords() {
@@ -37,7 +37,7 @@ export default function TransfersRecords() {
 
   // Calculate summary stats
   const totalIncome = transfers?.filter(t => t.type === "income").reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-  const totalExpense = transfers?.filter(t => t.type === "expense").reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+  const totalProfit = transfers?.reduce((sum, t) => sum + Number(t.profit || 0), 0) || 0;
   const totalCount = transfers?.length || 0;
 
   return (
@@ -81,12 +81,12 @@ export default function TransfersRecords() {
           
           <div className="notebook-paper p-3 text-center">
             <div className="flex justify-center mb-2">
-              <div className="p-2 rounded-lg bg-expense/10">
-                <ArrowDownCircle className="h-4 w-4 text-expense" />
+              <div className="p-2 rounded-lg bg-income/10">
+                <Percent className="h-4 w-4 text-income" />
               </div>
             </div>
-            <p className="text-lg font-bold text-expense">{totalExpense.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">إجمالي المصروفات</p>
+            <p className="text-lg font-bold text-income">{totalProfit.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">إجمالي الربح</p>
           </div>
         </div>
 
@@ -106,16 +106,8 @@ export default function TransfersRecords() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div
-                        className={`p-2 rounded-lg ${
-                          t.type === "income" ? "bg-income/10" : "bg-expense/10"
-                        }`}
-                      >
-                        {t.type === "income" ? (
-                          <TrendingUp className="h-4 w-4 text-income" />
-                        ) : (
-                          <TrendingDown className="h-4 w-4 text-expense" />
-                        )}
+                      <div className="p-2 rounded-lg bg-income/10">
+                        <TrendingUp className="h-4 w-4 text-income" />
                       </div>
                       <div>
                         {t.notes && (
@@ -127,13 +119,8 @@ export default function TransfersRecords() {
                       </div>
                     </div>
                     <div className="text-left">
-                      <span
-                        className={`font-bold text-lg ${
-                          t.type === "income" ? "text-income" : "text-expense"
-                        }`}
-                      >
-                        {t.type === "income" ? "+" : "-"}
-                        {Number(t.amount).toLocaleString()}
+                      <span className="font-bold text-lg text-income">
+                        +{Number(t.amount).toLocaleString()}
                       </span>
                       {Number(t.profit) > 0 && (
                         <p className="text-xs text-income font-medium">
