@@ -2,17 +2,32 @@ import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, Package, HandCoins, ChevronLeft } from "lucide-react";
+import { TrendingUp, Package, HandCoins, ChevronLeft, Hash, Banknote, ArrowUp, ArrowDown, Layers, RefreshCw, CheckCircle2, XCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+
+interface BadgeProps {
+  icon: React.ReactNode;
+  value: string | number;
+  colorClass?: string;
+}
+
+function Badge({ icon, value, colorClass = "bg-muted text-muted-foreground" }: BadgeProps) {
+  return (
+    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
+      {icon}
+      <span>{value}</span>
+    </div>
+  );
+}
 
 interface RecordCardProps {
   icon: React.ReactNode;
   title: string;
-  stats: { label: string; value: string | number; colorClass?: string }[];
+  badges: BadgeProps[];
   to: string;
 }
 
-function RecordCard({ icon, title, stats, to }: RecordCardProps) {
+function RecordCard({ icon, title, badges, to }: RecordCardProps) {
   return (
     <Link
       to={to}
@@ -22,15 +37,10 @@ function RecordCard({ icon, title, stats, to }: RecordCardProps) {
         <div className="flex items-center gap-3">
           <div className="p-3 rounded-xl bg-muted">{icon}</div>
           <div>
-            <h3 className="font-bold text-lg text-foreground">{title}</h3>
-            <div className="flex flex-wrap gap-2 mt-1">
-              {stats.map((stat, i) => (
-                <span
-                  key={i}
-                  className={`text-sm ${stat.colorClass || "text-muted-foreground"}`}
-                >
-                  {stat.label}: <span className="font-semibold">{stat.value}</span>
-                </span>
+            <h3 className="font-bold text-lg text-foreground mb-2">{title}</h3>
+            <div className="flex flex-wrap gap-2">
+              {badges.map((badge, i) => (
+                <Badge key={i} {...badge} />
               ))}
             </div>
           </div>
@@ -133,13 +143,21 @@ export default function Records() {
             <RecordCard
               icon={<TrendingUp className="h-6 w-6 text-primary" />}
               title="سجل التحويلات"
-              stats={[
+              badges={[
                 {
-                  label: "الإجمالي",
-                  value: (transfersData?.total || 0).toLocaleString(),
-                  colorClass: (transfersData?.total || 0) >= 0 ? "text-income" : "text-expense",
+                  icon: <Hash className="h-3.5 w-3.5" />,
+                  value: transfersData?.count || 0,
                 },
-                { label: "عدد التحويلات", value: transfersData?.count || 0 },
+                {
+                  icon: <Banknote className="h-3.5 w-3.5" />,
+                  value: (transfersData?.total || 0).toLocaleString(),
+                  colorClass: (transfersData?.total || 0) >= 0 ? "bg-income/20 text-income" : "bg-expense/20 text-expense",
+                },
+                {
+                  icon: (transfersData?.total || 0) >= 0 ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />,
+                  value: "",
+                  colorClass: (transfersData?.total || 0) >= 0 ? "bg-income/20 text-income" : "bg-expense/20 text-expense",
+                },
               ]}
               to="/records/transfers"
             />
@@ -150,10 +168,19 @@ export default function Records() {
             <RecordCard
               icon={<Package className="h-6 w-6 text-accent" />}
               title="سجل البضاعة"
-              stats={[
-                { label: "عدد الأصناف", value: inventoryData?.itemsCount || 0 },
-                { label: "إجمالي الكمية", value: inventoryData?.totalQuantity || 0 },
-                { label: "الحركات", value: inventoryData?.movementsCount || 0 },
+              badges={[
+                {
+                  icon: <Package className="h-3.5 w-3.5" />,
+                  value: inventoryData?.itemsCount || 0,
+                },
+                {
+                  icon: <Layers className="h-3.5 w-3.5" />,
+                  value: inventoryData?.totalQuantity || 0,
+                },
+                {
+                  icon: <RefreshCw className="h-3.5 w-3.5" />,
+                  value: inventoryData?.movementsCount || 0,
+                },
               ]}
               to="/records/products"
             />
@@ -164,16 +191,16 @@ export default function Records() {
             <RecordCard
               icon={<HandCoins className="h-6 w-6 text-owed-to-me" />}
               title="سجل السلف"
-              stats={[
+              badges={[
                 {
-                  label: "ليك فلوس",
+                  icon: <CheckCircle2 className="h-3.5 w-3.5" />,
                   value: (debtsData?.owedToMe || 0).toLocaleString(),
-                  colorClass: "text-income",
+                  colorClass: "bg-income/20 text-income",
                 },
                 {
-                  label: "عليك فلوس",
+                  icon: <XCircle className="h-3.5 w-3.5" />,
                   value: (debtsData?.owedByMe || 0).toLocaleString(),
-                  colorClass: "text-expense",
+                  colorClass: "bg-expense/20 text-expense",
                 },
               ]}
               to="/records/debts"
