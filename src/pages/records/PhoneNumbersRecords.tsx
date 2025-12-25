@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Phone, ChevronLeft, Hash, Banknote, Calendar, FileText, TrendingUp } from "lucide-react";
+import { Phone, ChevronLeft, Hash, Banknote, Calendar, FileText, TrendingUp, ArrowUpCircle, Percent } from "lucide-react";
 import { useState } from "react";
 
 interface PhoneNumber {
@@ -191,51 +191,95 @@ export default function PhoneNumbersRecords() {
 
         {/* Number Transfers List */}
         {selectedNumberId && (
-          <div className="space-y-3">
-            {numberTransfers?.length === 0 && (
-              <div className="text-center py-12 text-muted-foreground">
-                <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                <p>لا توجد تحويلات لهذا الرقم</p>
-              </div>
-            )}
+          <div className="space-y-6">
+            {/* Summary Cards */}
+            {(() => {
+              const totalCount = numberTransfers?.length || 0;
+              const totalAmount = numberTransfers?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+              const totalProfit = numberTransfers?.reduce((sum, t) => sum + Number(t.profit || 0), 0) || 0;
 
-            {numberTransfers?.map((transfer, index) => (
-              <div
-                key={transfer.id}
-                className="notebook-paper p-4 animate-slide-up"
-                style={{ animationDelay: `${index * 30}ms` }}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl bg-income/10">
-                      <Banknote className="h-4 w-4 text-income" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-foreground">
-                          {Number(transfer.amount).toLocaleString()} ج.م
-                        </span>
-                        {transfer.profit && Number(transfer.profit) > 0 && (
-                          <span className="text-xs text-income bg-income/10 px-1.5 py-0.5 rounded">
-                            +{Number(transfer.profit).toLocaleString()} ربح
-                          </span>
-                        )}
+              return (
+                <div className="grid grid-cols-3 gap-3 animate-slide-up">
+                  <div className="notebook-paper p-3 text-center">
+                    <div className="flex justify-center mb-2">
+                      <div className="p-2 rounded-lg bg-muted">
+                        <Hash className="h-4 w-4 text-muted-foreground" />
                       </div>
-                      {transfer.notes && (
-                        <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                          <FileText className="h-3 w-3" />
-                          {transfer.notes}
-                        </p>
-                      )}
                     </div>
+                    <p className="text-lg font-bold">{totalCount}</p>
+                    <p className="text-xs text-muted-foreground">عدد التحويلات</p>
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    {formatDate(transfer.created_at)}
+                  
+                  <div className="notebook-paper p-3 text-center">
+                    <div className="flex justify-center mb-2">
+                      <div className="p-2 rounded-lg bg-income/10">
+                        <ArrowUpCircle className="h-4 w-4 text-income" />
+                      </div>
+                    </div>
+                    <p className="text-lg font-bold text-income">{totalAmount.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">إجمالي الدخل</p>
+                  </div>
+                  
+                  <div className="notebook-paper p-3 text-center">
+                    <div className="flex justify-center mb-2">
+                      <div className="p-2 rounded-lg bg-income/10">
+                        <Percent className="h-4 w-4 text-income" />
+                      </div>
+                    </div>
+                    <p className="text-lg font-bold text-income">{totalProfit.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">الربح</p>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })()}
+
+            {/* Transfers List */}
+            <div className="space-y-3">
+              {numberTransfers?.length === 0 && (
+                <div className="text-center py-12 text-muted-foreground">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                  <p>لا توجد تحويلات لهذا الرقم</p>
+                </div>
+              )}
+
+              {numberTransfers?.map((transfer, index) => (
+                <div
+                  key={transfer.id}
+                  className="notebook-paper p-4 animate-slide-up"
+                  style={{ animationDelay: `${index * 30}ms` }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-income/10">
+                        <Banknote className="h-4 w-4 text-income" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-foreground">
+                            {Number(transfer.amount).toLocaleString()} ج.م
+                          </span>
+                          {transfer.profit && Number(transfer.profit) > 0 && (
+                            <span className="text-xs text-income bg-income/10 px-1.5 py-0.5 rounded">
+                              +{Number(transfer.profit).toLocaleString()} ربح
+                            </span>
+                          )}
+                        </div>
+                        {transfer.notes && (
+                          <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <FileText className="h-3 w-3" />
+                            {transfer.notes}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      {formatDate(transfer.created_at)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
