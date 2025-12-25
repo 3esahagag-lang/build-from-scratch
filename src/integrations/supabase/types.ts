@@ -50,6 +50,48 @@ export type Database = {
         }
         Relationships: []
       }
+      financial_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          notes: string | null
+          profit_amount: number | null
+          related_entity: Database["public"]["Enums"]["related_entity_type"]
+          related_entity_id: string | null
+          status: Database["public"]["Enums"]["transaction_status"]
+          transaction_type: Database["public"]["Enums"]["transaction_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          profit_amount?: number | null
+          related_entity: Database["public"]["Enums"]["related_entity_type"]
+          related_entity_id?: string | null
+          status?: Database["public"]["Enums"]["transaction_status"]
+          transaction_type: Database["public"]["Enums"]["transaction_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          profit_amount?: number | null
+          related_entity?: Database["public"]["Enums"]["related_entity_type"]
+          related_entity_id?: string | null
+          status?: Database["public"]["Enums"]["transaction_status"]
+          transaction_type?: Database["public"]["Enums"]["transaction_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       fixed_number_transfers: {
         Row: {
           amount: number
@@ -285,13 +327,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_capital_balance: { Args: { _user_id: string }; Returns: number }
+      get_financial_summary: {
+        Args: { _user_id: string }
+        Returns: {
+          capital_balance: number
+          total_debt_given: number
+          total_debt_received: number
+          total_expense: number
+          total_income: number
+          total_profit: number
+        }[]
+      }
       get_fixed_number_monthly_usage: {
         Args: { _fixed_number_id: string; _user_id: string }
         Returns: number
       }
+      get_total_profit: { Args: { _user_id: string }; Returns: number }
     }
     Enums: {
-      [_ in never]: never
+      related_entity_type:
+        | "cash_transfer"
+        | "inventory_sale"
+        | "debt"
+        | "phone_number"
+      transaction_status: "pending" | "confirmed" | "failed" | "reversed"
+      transaction_type:
+        | "income"
+        | "expense"
+        | "profit"
+        | "debt"
+        | "debt_payment"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -418,6 +484,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      related_entity_type: [
+        "cash_transfer",
+        "inventory_sale",
+        "debt",
+        "phone_number",
+      ],
+      transaction_status: ["pending", "confirmed", "failed", "reversed"],
+      transaction_type: ["income", "expense", "profit", "debt", "debt_payment"],
+    },
   },
 } as const
