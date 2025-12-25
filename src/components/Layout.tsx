@@ -119,10 +119,6 @@ export default function Layout({ children }: LayoutProps) {
         {children}
       </main>
 
-      {/* Footer */}
-      <footer className="py-4 text-center text-sm text-muted-foreground border-t border-border">
-        تم تطويره محليًا بواسطة <span className="font-bold text-foreground">عيسى</span>
-      </footer>
     </div>
   );
 }

@@ -182,15 +182,10 @@ export default function Records() {
         </div>
 
         {/* Developer Credit */}
-        <div className="animate-slide-up pt-8" style={{ animationDelay: "200ms" }}>
-          <div className="text-center space-y-3">
-            <p className="text-sm text-muted-foreground">تم تطويره محليًا بواسطة</p>
-            <div className="inline-flex items-center justify-center px-6 py-3 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20">
-              <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                عيسى
-              </span>
-            </div>
-          </div>
+        <div className="pt-12 pb-4">
+          <p className="text-center text-xs text-muted-foreground/60">
+            تم تطويره محلي بواسطة <span className="font-medium text-muted-foreground">عيسى</span>
+          </p>
         </div>
       </div>
     </Layout>
