@@ -66,7 +66,7 @@ export default function Transfers() {
     enabled: !!user,
   });
 
-  // Fetch monthly usage for fixed numbers
+  // Fetch monthly usage for fixed numbers (from both tables)
   const { data: monthlyUsage } = useQuery({
     queryKey: ["fixed-number-monthly-usage", user?.id],
     queryFn: async () => {
@@ -74,19 +74,40 @@ export default function Transfers() {
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
 
-      const { data, error } = await supabase
+      // Get from fixed_number_transfers (legacy)
+      const { data: fixedData, error: fixedError } = await supabase
         .from("fixed_number_transfers")
         .select("fixed_number_id, amount")
         .gte("created_at", startOfMonth.toISOString());
 
-      if (error) throw error;
+      if (fixedError) throw fixedError;
+      
+      // Get from transfers table (new - with fixed_number_id)
+      const { data: transfersData, error: transfersError } = await supabase
+        .from("transfers")
+        .select("fixed_number_id, amount")
+        .not("fixed_number_id", "is", null)
+        .eq("is_archived", false)
+        .gte("created_at", startOfMonth.toISOString());
+
+      if (transfersError) throw transfersError;
       
       const usage: Record<string, number> = {};
-      data?.forEach(t => {
+      
+      // Add from fixed_number_transfers
+      fixedData?.forEach(t => {
         if (t.fixed_number_id) {
           usage[t.fixed_number_id] = (usage[t.fixed_number_id] || 0) + Number(t.amount);
         }
       });
+      
+      // Add from transfers table
+      transfersData?.forEach(t => {
+        if (t.fixed_number_id) {
+          usage[t.fixed_number_id] = (usage[t.fixed_number_id] || 0) + Number(t.amount);
+        }
+      });
+      
       return usage;
     },
     enabled: !!user,
@@ -158,21 +179,26 @@ export default function Transfers() {
     },
   });
 
-  // Add fixed number transfer mutation
+  // Add fixed number transfer mutation - using transfers table to support profit
   const addFixedNumberTransfer = useMutation({
     mutationFn: async ({ 
       fixedNumberId, 
       transferAmount, 
+      transferProfit,
       transferNotes 
     }: { 
       fixedNumberId: string; 
       transferAmount: number; 
+      transferProfit?: number;
       transferNotes?: string;
     }) => {
-      const { error } = await supabase.from("fixed_number_transfers").insert({
+      // Insert into transfers table (has profit field) with fixed_number_id
+      const { error } = await supabase.from("transfers").insert({
         user_id: user!.id,
         fixed_number_id: fixedNumberId,
         amount: transferAmount,
+        profit: transferProfit || 0,
+        type: "income",
         notes: transferNotes || null,
       });
       if (error) throw error;
@@ -182,6 +208,7 @@ export default function Transfers() {
       queryClient.invalidateQueries({ queryKey: ["transfers"] });
       queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
       queryClient.invalidateQueries({ queryKey: ["today-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["phone-number-transfers"] });
       toast({ title: "تم تسجيل التحويل على الرقم بنجاح" });
       setExpandedNumberId(null);
     },
@@ -311,6 +338,7 @@ export default function Transfers() {
     await wrapSubmit(() => addFixedNumberTransfer.mutateAsync({
       fixedNumberId,
       transferAmount: data.amount,
+      transferProfit: data.profit,
       transferNotes: data.notes,
     }));
   };
