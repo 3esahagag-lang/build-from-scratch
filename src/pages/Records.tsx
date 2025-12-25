@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, Package, HandCoins, ChevronLeft, Hash, Banknote, ArrowUp, ArrowDown, Layers, RefreshCw, CheckCircle2, XCircle } from "lucide-react";
+import { TrendingUp, Package, HandCoins, ChevronLeft, Hash, Banknote, ArrowUp, ArrowDown, Layers, RefreshCw, CheckCircle2, XCircle, Phone, Gauge } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface BadgeProps {
@@ -54,29 +54,51 @@ function RecordCard({ icon, title, badges, to }: RecordCardProps) {
 export default function Records() {
   const { user } = useAuth();
 
-  // Fetch transfers count and total
+  // Fetch transfers count and total - EXCLUDE fixed number transfers (they are separate entities)
   const { data: transfersData } = useQuery({
     queryKey: ["records-transfers-summary", user?.id],
     queryFn: async () => {
-      const [transfers, fixedNumberTransfers] = await Promise.all([
+      // Only get general transfers (no fixed_number_id)
+      const { data: transfers, error } = await supabase
+        .from("transfers")
+        .select("amount, type")
+        .eq("is_archived", false)
+        .is("fixed_number_id", null);
+      
+      if (error) throw error;
+
+      const transfersTotal = transfers?.reduce((sum, t) => {
+        return t.type === "income" ? sum + Number(t.amount) : sum - Number(t.amount);
+      }, 0) || 0;
+
+      return {
+        count: transfers?.length || 0,
+        total: transfersTotal,
+      };
+    },
+    enabled: !!user,
+  });
+
+  // Fetch phone numbers summary (independent entities)
+  const { data: phoneNumbersData } = useQuery({
+    queryKey: ["records-phone-numbers-summary", user?.id],
+    queryFn: async () => {
+      const [numbers, transfers] = await Promise.all([
         supabase
-          .from("transfers")
-          .select("amount, type")
-          .eq("is_archived", false),
+          .from("fixed_numbers")
+          .select("id, is_disabled, monthly_limit"),
         supabase
           .from("fixed_number_transfers")
           .select("amount"),
       ]);
 
-      const transfersTotal =
-        (transfers.data?.reduce((sum, t) => {
-          return t.type === "income" ? sum + Number(t.amount) : sum - Number(t.amount);
-        }, 0) || 0) +
-        (fixedNumberTransfers.data?.reduce((sum, t) => sum + Number(t.amount), 0) || 0);
+      const activeCount = numbers.data?.filter(n => !n.is_disabled).length || 0;
+      const totalTransferred = transfers.data?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
 
       return {
-        count: (transfers.data?.length || 0) + (fixedNumberTransfers.data?.length || 0),
-        total: transfersTotal,
+        count: numbers.data?.length || 0,
+        activeCount,
+        totalTransferred,
       };
     },
     enabled: !!user,
@@ -138,7 +160,7 @@ export default function Records() {
 
         {/* Record Cards */}
         <div className="space-y-4">
-          {/* Transfers Card */}
+          {/* Transfers Card - General transfers only */}
           <div className="animate-slide-up" style={{ animationDelay: "50ms" }}>
             <RecordCard
               icon={<TrendingUp className="h-6 w-6 text-primary" />}
@@ -160,6 +182,30 @@ export default function Records() {
                 },
               ]}
               to="/records/transfers"
+            />
+          </div>
+
+          {/* Phone Numbers Card - Independent financial entities */}
+          <div className="animate-slide-up" style={{ animationDelay: "75ms" }}>
+            <RecordCard
+              icon={<Phone className="h-6 w-6 text-primary" />}
+              title="أرقام الهواتف"
+              badges={[
+                {
+                  icon: <Hash className="h-3.5 w-3.5" />,
+                  value: phoneNumbersData?.count || 0,
+                },
+                {
+                  icon: <Gauge className="h-3.5 w-3.5" />,
+                  value: `${phoneNumbersData?.activeCount || 0} نشط`,
+                  colorClass: "bg-income/20 text-income",
+                },
+                {
+                  icon: <Banknote className="h-3.5 w-3.5" />,
+                  value: (phoneNumbersData?.totalTransferred || 0).toLocaleString(),
+                },
+              ]}
+              to="/transfers"
             />
           </div>
 
