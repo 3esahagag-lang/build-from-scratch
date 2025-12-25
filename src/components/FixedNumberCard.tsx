@@ -114,12 +114,12 @@ export default function FixedNumberCard({
     <>
       <div
         onClick={handleCardClick}
-        className={`relative p-4 rounded-xl border-2 transition-all duration-200 ${
+        className={`relative p-4 pb-3 rounded-xl border-2 transition-all duration-200 group ${
           isDisabled 
             ? "border-border/50 bg-muted/30 opacity-60 cursor-not-allowed"
             : isSelected
               ? "border-primary bg-primary/5 cursor-pointer"
-              : "border-border hover:border-primary/50 hover:bg-accent/30 hover:shadow-md active:scale-[0.98] bg-card cursor-pointer"
+              : "border-border hover:border-primary/50 hover:bg-accent/40 hover:shadow-lg active:scale-[0.98] active:bg-accent/60 bg-card cursor-pointer"
         }`}
       >
         {/* Top Actions Bar */}
@@ -313,13 +313,7 @@ export default function FixedNumberCard({
               <p className="text-sm text-muted-foreground truncate mb-2">{name}</p>
             )}
             
-            {/* Clickable Hint */}
-            {!isDisabled && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground/80 mt-1">
-                <span>عرض بيانات الرقم</span>
-                <ChevronLeft className="h-4 w-4" />
-              </div>
-            )}
+            {/* Remove inline hint - will add at bottom of card */}
             
             {/* Usage stats */}
             {limit > 0 && (
@@ -362,6 +356,14 @@ export default function FixedNumberCard({
             </div>
           )}
         </div>
+        
+        {/* Clickable Hint Footer */}
+        {!isDisabled && (
+          <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-center gap-2 text-xs text-muted-foreground/70 group-hover:text-primary/80 transition-colors">
+            <span>عرض التفاصيل</span>
+            <ChevronLeft className="h-4 w-4 group-hover:translate-x-[-2px] transition-transform" />
+          </div>
+        )}
       </div>
 
       {/* Disable Confirmation Dialog */}
