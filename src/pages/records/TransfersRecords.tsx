@@ -99,10 +99,10 @@ export default function TransfersRecords() {
                 لا توجد تحويلات
               </p>
             ) : (
-              transfers?.slice(0, 20).map((t) => (
+              transfers?.slice(0, 30).map((t) => (
                 <div
                   key={t.id}
-                  className="notebook-paper p-3"
+                  className="notebook-paper p-4"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -118,22 +118,29 @@ export default function TransfersRecords() {
                         )}
                       </div>
                       <div>
-                        <p className="font-medium text-sm">
-                          {t.notes || (t.type === "income" ? "دخل" : "مصروف")}
-                        </p>
+                        {t.notes && (
+                          <p className="font-medium text-sm">{t.notes}</p>
+                        )}
                         <p className="text-xs text-muted-foreground">
                           {formatDate(t.created_at!)}
                         </p>
                       </div>
                     </div>
-                    <span
-                      className={`font-bold ${
-                        t.type === "income" ? "text-income" : "text-expense"
-                      }`}
-                    >
-                      {t.type === "income" ? "+" : "-"}
-                      {Number(t.amount).toLocaleString()}
-                    </span>
+                    <div className="text-left">
+                      <span
+                        className={`font-bold text-lg ${
+                          t.type === "income" ? "text-income" : "text-expense"
+                        }`}
+                      >
+                        {t.type === "income" ? "+" : "-"}
+                        {Number(t.amount).toLocaleString()}
+                      </span>
+                      {Number(t.profit) > 0 && (
+                        <p className="text-xs text-income font-medium">
+                          ربح: +{Number(t.profit).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))
