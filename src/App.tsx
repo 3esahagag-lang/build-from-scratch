@@ -17,6 +17,7 @@ import TransfersRecords from "./pages/records/TransfersRecords";
 import ProductsRecords from "./pages/records/ProductsRecords";
 import CategoryDetails from "./pages/records/CategoryDetails";
 import DebtsRecords from "./pages/records/DebtsRecords";
+import PhoneNumbersRecords from "./pages/records/PhoneNumbersRecords";
 import Reports from "./pages/Reports";
 import SellProducts from "./pages/SellProducts";
 import SettleDebts from "./pages/SettleDebts";
@@ -185,6 +186,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <DebtsRecords />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/records/phone-numbers"
+        element={
+          <ProtectedRoute>
+            <PhoneNumbersRecords />
           </ProtectedRoute>
         }
       />
