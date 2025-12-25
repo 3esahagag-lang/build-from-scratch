@@ -328,6 +328,42 @@ export type Database = {
           },
         ]
       }
+      record_history: {
+        Row: {
+          action: Database["public"]["Enums"]["record_action"]
+          changes: Json
+          created_at: string
+          id: string
+          previous_values: Json | null
+          reason: string | null
+          record_id: string
+          record_type: Database["public"]["Enums"]["record_type"]
+          user_id: string
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["record_action"]
+          changes?: Json
+          created_at?: string
+          id?: string
+          previous_values?: Json | null
+          reason?: string | null
+          record_id: string
+          record_type: Database["public"]["Enums"]["record_type"]
+          user_id: string
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["record_action"]
+          changes?: Json
+          created_at?: string
+          id?: string
+          previous_values?: Json | null
+          reason?: string | null
+          record_id?: string
+          record_type?: Database["public"]["Enums"]["record_type"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       transfers: {
         Row: {
           amount: number
@@ -374,7 +410,23 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      ledger_entries: {
+        Row: {
+          amount: number | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          profit: number | null
+          record_type: Database["public"]["Enums"]["record_type"] | null
+          related_entity_id: string | null
+          related_entity_name: string | null
+          related_entity_type: string | null
+          status: Database["public"]["Enums"]["record_status"] | null
+          sub_type: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_capital_balance: { Args: { _user_id: string }; Returns: number }
@@ -422,11 +474,51 @@ export type Database = {
           transfer_profit: number
         }[]
       }
+      get_record_history: {
+        Args: { _record_id: string; _user_id: string }
+        Returns: {
+          action: Database["public"]["Enums"]["record_action"]
+          changes: Json
+          created_at: string
+          id: string
+          previous_values: Json
+          reason: string
+        }[]
+      }
       get_total_profit: { Args: { _user_id: string }; Returns: number }
       get_user_total_profit: { Args: { _user_id: string }; Returns: number }
+      log_record_change: {
+        Args: {
+          _action: Database["public"]["Enums"]["record_action"]
+          _changes?: Json
+          _previous_values?: Json
+          _reason?: string
+          _record_id: string
+          _record_type: Database["public"]["Enums"]["record_type"]
+          _user_id: string
+        }
+        Returns: string
+      }
+      reverse_debt: {
+        Args: { _debt_id: string; _reason?: string; _user_id: string }
+        Returns: boolean
+      }
+      reverse_transfer: {
+        Args: { _reason?: string; _transfer_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       profit_source_type: "inventory_sale" | "cash_transfer"
+      record_action: "create" | "update" | "reverse" | "delete"
+      record_status: "active" | "reversed" | "deleted"
+      record_type:
+        | "transfer"
+        | "inventory_sale"
+        | "inventory_add"
+        | "debt"
+        | "debt_payment"
+        | "fixed_number_transfer"
       related_entity_type:
         | "cash_transfer"
         | "inventory_sale"
@@ -567,6 +659,16 @@ export const Constants = {
   public: {
     Enums: {
       profit_source_type: ["inventory_sale", "cash_transfer"],
+      record_action: ["create", "update", "reverse", "delete"],
+      record_status: ["active", "reversed", "deleted"],
+      record_type: [
+        "transfer",
+        "inventory_sale",
+        "inventory_add",
+        "debt",
+        "debt_payment",
+        "fixed_number_transfer",
+      ],
       related_entity_type: [
         "cash_transfer",
         "inventory_sale",
