@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Phone, Gauge, Settings, Edit2, Gauge as LimitIcon, Ban, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,7 @@ export default function FixedNumberCard({
   onUpdate,
   onDisable,
 }: FixedNumberCardProps) {
+  const navigate = useNavigate();
   const [manageOpen, setManageOpen] = useState(false);
   const [editMode, setEditMode] = useState<"number" | "limit" | null>(null);
   const [editPhoneNumber, setEditPhoneNumber] = useState(phoneNumber);
@@ -104,6 +106,8 @@ export default function FixedNumberCard({
   const handleCardClick = () => {
     if (isDisabled) return;
     onSelect?.();
+    // Navigate to number details
+    navigate(`/numbers/${id}`);
   };
 
   return (

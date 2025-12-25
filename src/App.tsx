@@ -18,6 +18,7 @@ import DebtsRecords from "./pages/records/DebtsRecords";
 import Reports from "./pages/Reports";
 import SellProducts from "./pages/SellProducts";
 import SettleDebts from "./pages/SettleDebts";
+import FixedNumberDetails from "./pages/FixedNumberDetails";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -87,6 +88,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Transfers />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/numbers/:id"
+        element={
+          <ProtectedRoute>
+            <FixedNumberDetails />
           </ProtectedRoute>
         }
       />
