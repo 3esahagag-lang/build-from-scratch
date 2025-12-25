@@ -10,9 +10,10 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerFooter,
+  DrawerDescription,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { Package, Minus, Plus, Check, X } from "lucide-react";
+import { Package, Minus, Plus, Check, X, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface SellProductsDrawerProps {
@@ -27,14 +28,69 @@ interface InventoryItem {
   category_id: string | null;
 }
 
-export default function SellProductsDrawer({ open, onOpenChange }: SellProductsDrawerProps) {
+// Separated business logic for selling products
+async function sellProduct(
+  userId: string,
+  itemId: string,
+  currentQuantity: number,
+  sellQuantity: number
+): Promise<void> {
+  const newQuantity = currentQuantity - sellQuantity;
+
+  console.log("[sellProduct] Attempting sale:", {
+    userId,
+    itemId,
+    currentQuantity,
+    sellQuantity,
+    newQuantity,
+  });
+
+  // Step 1: Update item quantity
+  const { error: updateError } = await supabase
+    .from("inventory_items")
+    .update({ quantity: newQuantity })
+    .eq("id", itemId);
+
+  if (updateError) {
+    console.error("[sellProduct] Update error:", updateError);
+    throw new Error(`فشل تحديث الكمية: ${updateError.message}`);
+  }
+
+  // Step 2: Create sale log record
+  const { error: logError } = await supabase.from("inventory_logs").insert({
+    item_id: itemId,
+    user_id: userId,
+    action: "sale",
+    quantity_change: -sellQuantity,
+  });
+
+  if (logError) {
+    console.error("[sellProduct] Log error:", logError);
+    // Rollback the quantity update if logging fails
+    await supabase
+      .from("inventory_items")
+      .update({ quantity: currentQuantity })
+      .eq("id", itemId);
+    throw new Error(`فشل تسجيل البيع: ${logError.message}`);
+  }
+
+  console.log("[sellProduct] Sale completed successfully");
+}
+
+export default function SellProductsDrawer({
+  open,
+  onOpenChange,
+}: SellProductsDrawerProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [sellQuantities, setSellQuantities] = useState<Record<string, number>>({});
+  const [sellQuantities, setSellQuantities] = useState<Record<string, number>>(
+    {}
+  );
 
   const { data: items, isLoading } = useQuery({
     queryKey: ["inventory-items-available", user?.id],
     queryFn: async () => {
+      console.log("[SellProductsDrawer] Fetching available items...");
       const { data, error } = await supabase
         .from("inventory_items")
         .select("id, name, quantity, category_id")
@@ -42,83 +98,109 @@ export default function SellProductsDrawer({ open, onOpenChange }: SellProductsD
         .gt("quantity", 0)
         .order("name");
 
-      if (error) throw error;
-      return data as InventoryItem[];
+      if (error) {
+        console.error("[SellProductsDrawer] Fetch error:", error);
+        throw error;
+      }
+
+      console.log("[SellProductsDrawer] Fetched items:", data?.length);
+      return (data || []).map((item) => ({
+        ...item,
+        quantity: item.quantity ?? 0,
+      })) as InventoryItem[];
     },
     enabled: !!user && open,
   });
 
-  const sellItem = useMutation({
-    mutationFn: async ({ itemId, quantity }: { itemId: string; quantity: number }) => {
-      const item = items?.find(i => i.id === itemId);
-      if (!item) throw new Error("Item not found");
+  const sellItemMutation = useMutation({
+    mutationFn: async ({
+      itemId,
+      quantity,
+    }: {
+      itemId: string;
+      quantity: number;
+    }) => {
+      if (!user) throw new Error("يجب تسجيل الدخول");
 
-      const newQuantity = item.quantity - quantity;
-      
-      const { error: updateError } = await supabase
-        .from("inventory_items")
-        .update({ quantity: newQuantity })
-        .eq("id", itemId);
+      const item = items?.find((i) => i.id === itemId);
+      if (!item) throw new Error("الصنف غير موجود");
+      if (quantity <= 0) throw new Error("الكمية يجب أن تكون أكبر من صفر");
+      if (quantity > item.quantity) throw new Error("الكمية المطلوبة أكبر من المتاح");
 
-      if (updateError) throw updateError;
-
-      const { error: logError } = await supabase
-        .from("inventory_logs")
-        .insert({
-          item_id: itemId,
-          user_id: user!.id,
-          action: "sale",
-          quantity_change: -quantity,
-        });
-
-      if (logError) throw logError;
+      await sellProduct(user.id, itemId, item.quantity, quantity);
     },
     onSuccess: (_, { itemId }) => {
+      // Invalidate all related queries to update UI
       queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items-available"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-logs"] });
-      setSellQuantities(prev => ({ ...prev, [itemId]: 0 }));
+      
+      // Reset quantity for this item
+      setSellQuantities((prev) => ({ ...prev, [itemId]: 0 }));
       toast.success("تم تسجيل البيع بنجاح");
     },
-    onError: () => {
-      toast.error("حدث خطأ أثناء تسجيل البيع");
+    onError: (error: Error) => {
+      console.error("[SellProductsDrawer] Mutation error:", error);
+      toast.error(error.message || "حدث خطأ أثناء تسجيل البيع");
     },
   });
 
   const updateQuantity = (itemId: string, delta: number, maxQuantity: number) => {
-    setSellQuantities(prev => {
+    setSellQuantities((prev) => {
       const current = prev[itemId] || 0;
       const newValue = Math.max(0, Math.min(current + delta, maxQuantity));
       return { ...prev, [itemId]: newValue };
     });
   };
 
+  const setQuantity = (itemId: string, value: number, maxQuantity: number) => {
+    setSellQuantities((prev) => ({
+      ...prev,
+      [itemId]: Math.max(0, Math.min(value, maxQuantity)),
+    }));
+  };
+
   const handleSell = (itemId: string) => {
     const quantity = sellQuantities[itemId] || 0;
     if (quantity > 0) {
-      sellItem.mutate({ itemId, quantity });
+      sellItemMutation.mutate({ itemId, quantity });
     }
   };
 
+  // Reset quantities when drawer closes
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      setSellQuantities({});
+    }
+    onOpenChange(isOpen);
+  };
+
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
+    <Drawer open={open} onOpenChange={handleOpenChange}>
       <DrawerContent className="max-h-[85vh]">
         <DrawerHeader className="border-b border-border pb-4">
           <DrawerTitle className="flex items-center gap-2 text-xl">
             <Package className="h-6 w-6 text-primary" />
             بيع بضاعتك
           </DrawerTitle>
+          <DrawerDescription className="text-muted-foreground">
+            اختر الكمية ثم اضغط "تم البيع" لتسجيل عملية البيع
+          </DrawerDescription>
         </DrawerHeader>
 
         <ScrollArea className="flex-1 px-4 py-4" style={{ maxHeight: "60vh" }}>
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : items && items.length > 0 ? (
             <div className="space-y-3">
               {items.map((item) => {
                 const sellQty = sellQuantities[item.id] || 0;
+                const isProcessing =
+                  sellItemMutation.isPending &&
+                  sellItemMutation.variables?.itemId === item.id;
+
                 return (
                   <div
                     key={item.id}
@@ -126,9 +208,14 @@ export default function SellProductsDrawer({ open, onOpenChange }: SellProductsD
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="font-semibold text-foreground">{item.name}</h3>
+                        <h3 className="font-semibold text-foreground">
+                          {item.name}
+                        </h3>
                         <p className="text-sm text-muted-foreground">
-                          المتبقي: <span className="text-primary font-medium">{item.quantity}</span>
+                          المتبقي:{" "}
+                          <span className="text-primary font-medium">
+                            {item.quantity}
+                          </span>
                         </p>
                       </div>
                     </div>
@@ -139,21 +226,21 @@ export default function SellProductsDrawer({ open, onOpenChange }: SellProductsD
                           variant="outline"
                           size="sm"
                           onClick={() => updateQuantity(item.id, -1, item.quantity)}
-                          disabled={sellQty === 0}
+                          disabled={sellQty === 0 || isProcessing}
                           className="h-9 w-9 p-0"
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
-                        
+
                         <div className="flex-1 text-center font-bold text-lg min-w-[40px]">
                           {sellQty}
                         </div>
-                        
+
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => updateQuantity(item.id, 1, item.quantity)}
-                          disabled={sellQty >= item.quantity}
+                          disabled={sellQty >= item.quantity || isProcessing}
                           className="h-9 w-9 p-0"
                         >
                           <Plus className="h-4 w-4" />
@@ -165,7 +252,7 @@ export default function SellProductsDrawer({ open, onOpenChange }: SellProductsD
                           variant="secondary"
                           size="sm"
                           onClick={() => updateQuantity(item.id, 5, item.quantity)}
-                          disabled={sellQty >= item.quantity}
+                          disabled={sellQty >= item.quantity || isProcessing}
                           className="h-9 px-2 text-xs"
                         >
                           +5
@@ -174,7 +261,7 @@ export default function SellProductsDrawer({ open, onOpenChange }: SellProductsD
                           variant="secondary"
                           size="sm"
                           onClick={() => updateQuantity(item.id, 10, item.quantity)}
-                          disabled={sellQty >= item.quantity}
+                          disabled={sellQty >= item.quantity || isProcessing}
                           className="h-9 px-2 text-xs"
                         >
                           +10
@@ -183,11 +270,15 @@ export default function SellProductsDrawer({ open, onOpenChange }: SellProductsD
 
                       <Button
                         onClick={() => handleSell(item.id)}
-                        disabled={sellQty === 0 || sellItem.isPending}
+                        disabled={sellQty === 0 || isProcessing}
                         className="h-9 gap-1"
                         size="sm"
                       >
-                        <Check className="h-4 w-4" />
+                        {isProcessing ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Check className="h-4 w-4" />
+                        )}
                         تم البيع
                       </Button>
                     </div>

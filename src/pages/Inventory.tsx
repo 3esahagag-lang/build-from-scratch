@@ -4,22 +4,17 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  Plus, 
-  Package, 
-  Minus,
-  FolderOpen
-} from "lucide-react";
+import { Plus, Package, FolderOpen } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -33,14 +28,13 @@ export default function Inventory() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newItemName, setNewItemName] = useState("");
   const [newItemQuantity, setNewItemQuantity] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
-  const [sellQuantities, setSellQuantities] = useState<Record<string, number>>({});
 
   // Fetch categories
   const { data: categories } = useQuery({
@@ -101,7 +95,7 @@ export default function Inventory() {
         })
         .select()
         .single();
-      
+
       if (itemError) throw itemError;
 
       // Log the addition
@@ -116,6 +110,7 @@ export default function Inventory() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-logs"] });
       toast({ title: "تم إضافة الصنف" });
       setNewItemName("");
       setNewItemQuantity("");
@@ -124,42 +119,16 @@ export default function Inventory() {
     },
   });
 
-  // Sell item mutation
-  const sellItem = useMutation({
-    mutationFn: async ({ itemId, quantity }: { itemId: string; quantity: number }) => {
-      const item = items?.find(i => i.id === itemId);
-      if (!item) throw new Error("Item not found");
-      
-      const newQuantity = item.quantity - quantity;
-      
-      const { error: updateError } = await supabase
-        .from("inventory_items")
-        .update({ quantity: newQuantity })
-        .eq("id", itemId);
-      
-      if (updateError) throw updateError;
-
-      await supabase.from("inventory_logs").insert({
-        user_id: user!.id,
-        item_id: itemId,
-        quantity_change: -quantity,
-        action: "sell",
-      });
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
-      toast({ title: "تم البيع بنجاح" });
-      setSellQuantities(prev => ({ ...prev, [variables.itemId]: 0 }));
-    },
-  });
-
   // Group items by category
-  const groupedItems = items?.reduce((acc, item) => {
-    const categoryName = item.inventory_categories?.name || "بدون تصنيف";
-    if (!acc[categoryName]) acc[categoryName] = [];
-    acc[categoryName].push(item);
-    return acc;
-  }, {} as Record<string, typeof items>);
+  const groupedItems = items?.reduce(
+    (acc, item) => {
+      const categoryName = item.inventory_categories?.name || "بدون تصنيف";
+      if (!acc[categoryName]) acc[categoryName] = [];
+      acc[categoryName].push(item);
+      return acc;
+    },
+    {} as Record<string, typeof items>
+  );
 
   return (
     <Layout>
@@ -180,6 +149,7 @@ export default function Inventory() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>إضافة تصنيف</DialogTitle>
+                  <DialogDescription>أدخل اسم التصنيف الجديد</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -200,7 +170,7 @@ export default function Inventory() {
                 </div>
               </DialogContent>
             </Dialog>
-            
+
             <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="gap-1">
@@ -211,11 +181,15 @@ export default function Inventory() {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>إضافة صنف</DialogTitle>
+                  <DialogDescription>أدخل بيانات الصنف الجديد</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>التصنيف</Label>
-                    <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+                    <Select
+                      value={selectedCategoryId}
+                      onValueChange={setSelectedCategoryId}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="اختر تصنيفاً" />
                       </SelectTrigger>
@@ -259,7 +233,7 @@ export default function Inventory() {
           </div>
         </div>
 
-        {/* Items List */}
+        {/* Items List - Display Only (No Selling) */}
         {groupedItems && Object.keys(groupedItems).length > 0 ? (
           <div className="space-y-4">
             {Object.entries(groupedItems).map(([categoryName, categoryItems]) => (
@@ -269,50 +243,19 @@ export default function Inventory() {
                   {categoryName}
                 </h3>
                 <div className="notebook-paper divide-y divide-border">
-                  {categoryItems?.map((item) => {
-                    const sellQty = sellQuantities[item.id] || 0;
-                    
-                    return (
-                      <div key={item.id} className="record-item">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <Package className="h-5 w-5 text-accent" />
-                            <span className="font-medium">{item.name}</span>
-                          </div>
-                          <div className="text-lg font-bold">{item.quantity}</div>
+                  {categoryItems?.map((item) => (
+                    <div key={item.id} className="record-item">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Package className="h-5 w-5 text-accent" />
+                          <span className="font-medium">{item.name}</span>
                         </div>
-                        
-                        {item.quantity > 0 && (
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-4">
-                              <Slider
-                                value={[sellQty]}
-                                onValueChange={(v) => setSellQuantities(prev => ({
-                                  ...prev,
-                                  [item.id]: v[0]
-                                }))}
-                                max={item.quantity}
-                                step={1}
-                                className="flex-1"
-                              />
-                              <span className="w-12 text-center font-medium">{sellQty}</span>
-                            </div>
-                            {sellQty > 0 && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="w-full gap-2"
-                                onClick={() => sellItem.mutate({ itemId: item.id, quantity: sellQty })}
-                              >
-                                <Minus className="h-4 w-4" />
-                                بيع {sellQty}
-                              </Button>
-                            )}
-                          </div>
-                        )}
+                        <div className="text-lg font-bold text-primary">
+                          {item.quantity ?? 0}
+                        </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
