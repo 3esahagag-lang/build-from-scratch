@@ -177,24 +177,31 @@ export default function SellProductsDrawer({
 
   return (
     <Drawer open={open} onOpenChange={handleOpenChange}>
-      <DrawerContent className="max-h-[85vh]">
-        <DrawerHeader className="border-b border-border pb-4">
-          <DrawerTitle className="flex items-center gap-2 text-xl">
-            <Package className="h-6 w-6 text-primary" />
-            بيع بضاعتك
-          </DrawerTitle>
+      <DrawerContent className="h-[92dvh] max-h-[92dvh]">
+        <DrawerHeader className="border-b border-border pb-4 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <DrawerTitle className="flex items-center gap-2 text-xl">
+              <Package className="h-6 w-6 text-primary" />
+              بيع بضاعتك
+            </DrawerTitle>
+            <DrawerClose asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <X className="h-5 w-5" />
+              </Button>
+            </DrawerClose>
+          </div>
           <DrawerDescription className="text-muted-foreground">
             اختر الكمية ثم اضغط "تم البيع" لتسجيل عملية البيع
           </DrawerDescription>
         </DrawerHeader>
 
-        <ScrollArea className="flex-1 px-4 py-4" style={{ maxHeight: "60vh" }}>
+        <div className="flex-1 overflow-y-auto px-4 py-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : items && items.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-3 pb-4">
               {items.map((item) => {
                 const sellQty = sellQuantities[item.id] || 0;
                 const isProcessing =
@@ -292,16 +299,7 @@ export default function SellProductsDrawer({
               <p>لا توجد بضاعة متاحة للبيع</p>
             </div>
           )}
-        </ScrollArea>
-
-        <DrawerFooter className="border-t border-border pt-4">
-          <DrawerClose asChild>
-            <Button variant="outline" className="w-full gap-2">
-              <X className="h-4 w-4" />
-              إغلاق
-            </Button>
-          </DrawerClose>
-        </DrawerFooter>
+        </div>
       </DrawerContent>
     </Drawer>
   );

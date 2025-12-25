@@ -4,13 +4,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Drawer,
+  DrawerClose,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
   DrawerDescription,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { ArrowDownLeft, ArrowUpRight, Check, Wallet } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Check, Wallet, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface PayDebtsDrawerProps {
@@ -125,18 +126,25 @@ export default function PayDebtsDrawer({ open, onOpenChange }: PayDebtsDrawerPro
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85vh]">
-        <DrawerHeader className="text-center border-b border-border pb-4">
-          <DrawerTitle className="text-xl flex items-center justify-center gap-2">
-            <Wallet className="h-6 w-6 text-warning" />
-            سدّد سلفتك
-          </DrawerTitle>
+      <DrawerContent className="h-[92dvh] max-h-[92dvh]">
+        <DrawerHeader className="text-center border-b border-border pb-4 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <DrawerTitle className="text-xl flex items-center gap-2">
+              <Wallet className="h-6 w-6 text-warning" />
+              سدّد سلفتك
+            </DrawerTitle>
+            <DrawerClose asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <X className="h-5 w-5" />
+              </Button>
+            </DrawerClose>
+          </div>
           <DrawerDescription>
             اختر السلفة التي تريد تسديدها
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="p-4 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto p-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
