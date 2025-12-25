@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowRight, Phone, Settings, Pencil, Trash2, Calendar, ArrowDownUp } from "lucide-react";
+import { ArrowRight, Phone, Settings, Pencil, Trash2, Calendar, ArrowDownUp, Ban, CheckCircle } from "lucide-react";
 import { Link, useParams, Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,7 @@ export default function FixedNumberDetails() {
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [disableDialogOpen, setDisableDialogOpen] = useState(false);
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editLimit, setEditLimit] = useState("");
@@ -72,7 +73,7 @@ export default function FixedNumberDetails() {
 
   // Update fixed number mutation
   const updateMutation = useMutation({
-    mutationFn: async (updates: { name?: string; phone_number?: string; monthly_limit?: number }) => {
+    mutationFn: async (updates: { name?: string; phone_number?: string; monthly_limit?: number; is_disabled?: boolean }) => {
       const { error } = await supabase
         .from("fixed_numbers")
         .update(updates)
@@ -83,6 +84,7 @@ export default function FixedNumberDetails() {
       queryClient.invalidateQueries({ queryKey: ["fixed-number", id] });
       queryClient.invalidateQueries({ queryKey: ["fixed-numbers"] });
       setEditDialogOpen(false);
+      setDisableDialogOpen(false);
       toast.success("تم تحديث بيانات الرقم");
     },
     onError: () => {
@@ -176,6 +178,12 @@ export default function FixedNumberDetails() {
     });
   };
 
+  const handleToggleDisable = () => {
+    updateMutation.mutate({
+      is_disabled: !fixedNumber?.is_disabled,
+    });
+  };
+
   const handleDelete = () => {
     deleteMutation.mutate();
   };
@@ -249,8 +257,8 @@ export default function FixedNumberDetails() {
           style={{ animationDelay: "50ms" }}
         >
           <div className="flex items-center gap-4">
-            <div className="p-4 rounded-2xl bg-primary/10">
-              <Phone className="h-8 w-8 text-primary" />
+            <div className={`p-4 rounded-2xl ${fixedNumber.is_disabled ? "bg-muted" : "bg-primary/10"}`}>
+              <Phone className={`h-8 w-8 ${fixedNumber.is_disabled ? "text-muted-foreground" : "text-primary"}`} />
             </div>
             <div className="flex-1">
               <p className="font-mono text-2xl font-bold tracking-wide" dir="ltr">
@@ -268,7 +276,7 @@ export default function FixedNumberDetails() {
 
         {/* Summary Stats */}
         <div className="animate-slide-up" style={{ animationDelay: "100ms" }}>
-          <h2 className="text-sm font-medium text-muted-foreground mb-3">ملخص الاستهلاك</h2>
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">ملخص الاستهلاك الشهري</h2>
           
           {/* Progress Bar */}
           {limit > 0 && (
@@ -309,15 +317,15 @@ export default function FixedNumberDetails() {
           </div>
         </div>
 
-        {/* Linked Transfers */}
+        {/* Linked Transfers - Single Source of Truth */}
         <section className="animate-slide-up" style={{ animationDelay: "150ms" }}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-bold flex items-center gap-2">
               <ArrowDownUp className="h-5 w-5 text-primary" />
-              التحويلات المرتبطة
+              التحويلات المرتبطة بهذا الرقم
             </h2>
             {transfers && transfers.length > 0 && (
-              <span className="text-sm text-muted-foreground bg-muted px-2 py-1 rounded-full">
+              <span className="text-sm text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
                 {transfers.length}
               </span>
             )}
@@ -333,24 +341,28 @@ export default function FixedNumberDetails() {
               transfers.map((t) => (
                 <div
                   key={t.id}
-                  className="notebook-paper p-4 flex items-center justify-between"
+                  className="notebook-paper p-4"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-accent/50">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-accent/50">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div>
+                        {t.notes && (
+                          <p className="font-medium text-sm">{t.notes}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(t.created_at)} - {formatTime(t.created_at)}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-sm">
-                        {t.notes || "تحويل"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(t.created_at)} - {formatTime(t.created_at)}
-                      </p>
+                    <div className="text-left">
+                      <span className="font-bold text-lg">
+                        {Number(t.amount).toLocaleString("ar-EG")}
+                      </span>
                     </div>
                   </div>
-                  <span className="font-bold text-lg">
-                    {Number(t.amount).toLocaleString("ar-EG")}
-                  </span>
                 </div>
               ))
             )}
@@ -360,14 +372,30 @@ export default function FixedNumberDetails() {
         {/* Actions */}
         <section className="animate-slide-up space-y-3" style={{ animationDelay: "200ms" }}>
           <h2 className="text-sm font-medium text-muted-foreground">الإجراءات</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Button
               variant="outline"
               className="h-auto py-4 flex flex-col items-center gap-2"
               onClick={openEditDialog}
             >
               <Pencil className="h-5 w-5" />
-              <span>تعديل البيانات</span>
+              <span className="text-xs">تعديل</span>
+            </Button>
+            <Button
+              variant="outline"
+              className={`h-auto py-4 flex flex-col items-center gap-2 ${
+                fixedNumber.is_disabled 
+                  ? "border-income/30 text-income hover:bg-income/10 hover:text-income" 
+                  : "border-amber-500/30 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
+              }`}
+              onClick={() => setDisableDialogOpen(true)}
+            >
+              {fixedNumber.is_disabled ? (
+                <CheckCircle className="h-5 w-5" />
+              ) : (
+                <Ban className="h-5 w-5" />
+              )}
+              <span className="text-xs">{fixedNumber.is_disabled ? "تفعيل" : "تعطيل"}</span>
             </Button>
             <Button
               variant="outline"
@@ -375,7 +403,7 @@ export default function FixedNumberDetails() {
               onClick={() => setDeleteDialogOpen(true)}
             >
               <Trash2 className="h-5 w-5" />
-              <span>حذف الرقم</span>
+              <span className="text-xs">حذف</span>
             </Button>
           </div>
         </section>
@@ -435,11 +463,37 @@ export default function FixedNumberDetails() {
         </DialogContent>
       </Dialog>
 
+      {/* Disable/Enable Confirmation */}
+      <AlertDialog open={disableDialogOpen} onOpenChange={setDisableDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {fixedNumber.is_disabled ? "تفعيل الرقم" : "تعطيل الرقم"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {fixedNumber.is_disabled 
+                ? "هل تريد تفعيل هذا الرقم؟ سيصبح متاحاً للتحويلات مرة أخرى."
+                : "هل تريد تعطيل هذا الرقم؟ لن يظهر في قائمة التحويلات ولكن لن يتم حذف بياناته."
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleToggleDisable}
+              className={fixedNumber.is_disabled ? "bg-income text-income-foreground hover:bg-income/90" : ""}
+            >
+              {updateMutation.isPending ? "جاري التحديث..." : fixedNumber.is_disabled ? "تفعيل" : "تعطيل"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>حذف الرقم</AlertDialogTitle>
+            <AlertDialogTitle>حذف الرقم نهائياً</AlertDialogTitle>
             <AlertDialogDescription>
               هل أنت متأكد من حذف هذا الرقم؟ سيتم حذف جميع التحويلات المرتبطة به أيضاً.
               هذا الإجراء لا يمكن التراجع عنه.
@@ -451,7 +505,7 @@ export default function FixedNumberDetails() {
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleteMutation.isPending ? "جاري الحذف..." : "حذف"}
+              {deleteMutation.isPending ? "جاري الحذف..." : "حذف نهائي"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
