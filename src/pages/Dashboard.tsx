@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import SellProductsDrawer from "@/components/SellProductsDrawer";
 import PayDebtsDrawer from "@/components/PayDebtsDrawer";
+import FinancialSnapshot from "@/components/FinancialSnapshot";
 
 export default function Dashboard() {
   const [sellDrawerOpen, setSellDrawerOpen] = useState(false);
@@ -23,6 +24,11 @@ export default function Dashboard() {
         <div className="animate-slide-up">
           <h1 className="text-2xl font-bold text-foreground">مرحباً بك</h1>
           <p className="text-muted-foreground">ماذا تريد أن تفعل اليوم؟</p>
+        </div>
+
+        {/* Financial Snapshot */}
+        <div className="animate-slide-up" style={{ animationDelay: "25ms" }}>
+          <FinancialSnapshot />
         </div>
 
         {/* Quick Actions - Primary */}
