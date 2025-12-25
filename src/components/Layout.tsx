@@ -3,30 +3,18 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { 
-  Home, 
-  ArrowLeftRight, 
-  Package, 
-  HandCoins, 
-  BookOpen, 
-  BarChart3,
+import { navItems } from "@/components/navigation/navItems";
+import {
+  BookOpen,
   LogOut,
   Menu,
-  X
+  X,
 } from "lucide-react";
 
 interface LayoutProps {
   children: ReactNode;
 }
 
-const navItems = [
-  { path: "/", label: "الرئيسية", icon: Home },
-  { path: "/transfers", label: "التحويلات", icon: ArrowLeftRight },
-  { path: "/inventory", label: "البضاعة", icon: Package },
-  { path: "/debts", label: "السلف", icon: HandCoins },
-  { path: "/records", label: "السجل", icon: BookOpen },
-  { path: "/reports", label: "التقارير", icon: BarChart3 },
-];
 
 export default function Layout({ children }: LayoutProps) {
   const { signOut } = useAuth();
@@ -135,34 +123,6 @@ export default function Layout({ children }: LayoutProps) {
       <footer className="py-4 text-center text-sm text-muted-foreground border-t border-border">
         تم تطويره محليًا بواسطة <span className="font-bold text-foreground">عيسى</span>
       </footer>
-
-      {/* Bottom Nav - Always visible */}
-      <nav 
-        key={`bottom-nav-${location.pathname}`}
-        className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 safe-area-inset-bottom"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-      >
-        <div className="flex justify-around py-2">
-          {navItems.slice(0, 5).map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
-                  isActive 
-                    ? "text-primary" 
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Icon className="h-5 w-5" />
-                <span className="text-xs">{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
     </div>
   );
 }
