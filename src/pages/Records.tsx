@@ -160,11 +160,11 @@ export default function Records() {
 
         {/* Record Cards */}
         <div className="space-y-4">
-          {/* Transfers Card - General transfers only */}
+          {/* General Transfers Card - Transfers without phone numbers */}
           <div className="animate-slide-up" style={{ animationDelay: "50ms" }}>
             <RecordCard
               icon={<TrendingUp className="h-6 w-6 text-primary" />}
-              title="سجل التحويلات"
+              title="سجل التحويلات العامة"
               badges={[
                 {
                   icon: <Hash className="h-3.5 w-3.5" />,
@@ -185,11 +185,11 @@ export default function Records() {
             />
           </div>
 
-          {/* Phone Numbers Card - Independent financial entities */}
+          {/* Phone Numbers Records Card - Per-number history index */}
           <div className="animate-slide-up" style={{ animationDelay: "75ms" }}>
             <RecordCard
               icon={<Phone className="h-6 w-6 text-primary" />}
-              title="أرقام الهواتف"
+              title="سجل أرقامي"
               badges={[
                 {
                   icon: <Hash className="h-3.5 w-3.5" />,
@@ -205,7 +205,7 @@ export default function Records() {
                   value: (phoneNumbersData?.totalTransferred || 0).toLocaleString(),
                 },
               ]}
-              to="/transfers"
+              to="/records/phone-numbers"
             />
           </div>
 
