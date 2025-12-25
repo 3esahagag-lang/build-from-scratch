@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import BottomNavigation from "@/components/BottomNavigation";
+
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Transfers from "./pages/Transfers";
@@ -57,62 +59,74 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route 
-        path="/auth" 
+      <Route
+        path="/auth"
         element={
           <PublicRoute>
             <Auth />
           </PublicRoute>
-        } 
+        }
       />
-      <Route 
-        path="/" 
+
+      {/* Main app */}
+      <Route
+        path="/"
         element={
           <ProtectedRoute>
             <Dashboard />
           </ProtectedRoute>
-        } 
+        }
       />
-      <Route 
-        path="/transfers" 
+      <Route
+        path="/transfers"
         element={
           <ProtectedRoute>
             <Transfers />
           </ProtectedRoute>
-        } 
+        }
       />
-      <Route 
-        path="/inventory" 
+      <Route
+        path="/inventory"
         element={
           <ProtectedRoute>
             <Inventory />
           </ProtectedRoute>
-        } 
+        }
       />
-      <Route 
-        path="/debts" 
+      {/* Alias for older/expected route */}
+      <Route
+        path="/products"
+        element={
+          <ProtectedRoute>
+            <Navigate to="/inventory" replace />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/debts"
         element={
           <ProtectedRoute>
             <Debts />
           </ProtectedRoute>
-        } 
+        }
       />
-      <Route 
-        path="/records" 
+      <Route
+        path="/records"
         element={
           <ProtectedRoute>
             <Records />
           </ProtectedRoute>
-        } 
+        }
       />
-      <Route 
-        path="/reports" 
+      <Route
+        path="/reports"
         element={
           <ProtectedRoute>
             <Reports />
           </ProtectedRoute>
-        } 
+        }
       />
+
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
@@ -125,7 +139,14 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <AppRoutes />
+          {/* Global safe padding so content never sits under bottom nav */}
+          <div
+            className="min-h-screen pb-24"
+            style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom, 0px))" }}
+          >
+            <AppRoutes />
+          </div>
+          <BottomNavigation />
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
@@ -133,3 +154,4 @@ const App = () => (
 );
 
 export default App;
+
