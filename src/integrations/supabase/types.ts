@@ -278,6 +278,56 @@ export type Database = {
         }
         Relationships: []
       }
+      profits: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          notes: string | null
+          profit_per_unit: number | null
+          quantity: number | null
+          source_id: string | null
+          source_type: Database["public"]["Enums"]["profit_source_type"]
+          transaction_id: string | null
+          unit_type: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          profit_per_unit?: number | null
+          quantity?: number | null
+          source_id?: string | null
+          source_type: Database["public"]["Enums"]["profit_source_type"]
+          transaction_id?: string | null
+          unit_type?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          profit_per_unit?: number | null
+          quantity?: number | null
+          source_id?: string | null
+          source_type?: Database["public"]["Enums"]["profit_source_type"]
+          transaction_id?: string | null
+          unit_type?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profits_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "financial_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transfers: {
         Row: {
           amount: number
@@ -328,6 +378,10 @@ export type Database = {
     }
     Functions: {
       get_capital_balance: { Args: { _user_id: string }; Returns: number }
+      get_daily_profit: {
+        Args: { _date?: string; _user_id: string }
+        Returns: number
+      }
       get_financial_summary: {
         Args: { _user_id: string }
         Returns: {
@@ -343,9 +397,36 @@ export type Database = {
         Args: { _fixed_number_id: string; _user_id: string }
         Returns: number
       }
+      get_profit_by_date_range: {
+        Args: { _end_date: string; _start_date: string; _user_id: string }
+        Returns: {
+          inventory_amount: number
+          profit_date: string
+          total_amount: number
+          transfer_amount: number
+        }[]
+      }
+      get_profit_by_source: {
+        Args: {
+          _source_type: Database["public"]["Enums"]["profit_source_type"]
+          _user_id: string
+        }
+        Returns: number
+      }
+      get_profit_summary: {
+        Args: { _user_id: string }
+        Returns: {
+          inventory_profit: number
+          today_profit: number
+          total_profit: number
+          transfer_profit: number
+        }[]
+      }
       get_total_profit: { Args: { _user_id: string }; Returns: number }
+      get_user_total_profit: { Args: { _user_id: string }; Returns: number }
     }
     Enums: {
+      profit_source_type: "inventory_sale" | "cash_transfer"
       related_entity_type:
         | "cash_transfer"
         | "inventory_sale"
@@ -485,6 +566,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      profit_source_type: ["inventory_sale", "cash_transfer"],
       related_entity_type: [
         "cash_transfer",
         "inventory_sale",
