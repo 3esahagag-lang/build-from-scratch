@@ -265,36 +265,6 @@ export default function TransfersRecords() {
               </div>
             </section>
 
-            {/* Linked Transfers Section */}
-            {linkedTransfers.length > 0 && (
-              <section className="animate-slide-up" style={{ animationDelay: "150ms" }}>
-                <h2 className="text-lg font-bold mb-3">تحويلات مرتبطة</h2>
-                <div className="space-y-2">
-                  {linkedTransfers.slice(0, 10).map((t) => (
-                    <div
-                      key={t.id}
-                      className="notebook-paper p-3 flex items-center justify-between"
-                    >
-                      <div>
-                        <p className="font-medium text-sm">
-                          {t.fixed_numbers?.name || "رقم ثابت"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(t.created_at!)}
-                        </p>
-                      </div>
-                      <span
-                        className={`font-bold ${
-                          t.type === "income" ? "text-income" : "text-expense"
-                        }`}
-                      >
-                        {Number(t.amount).toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
           </>
         )}
       </div>
