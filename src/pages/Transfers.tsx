@@ -32,6 +32,7 @@ export default function Transfers() {
   
   const [type, setType] = useState<"income" | "expense">("income");
   const [amount, setAmount] = useState("");
+  const [profit, setProfit] = useState("");
   const [notes, setNotes] = useState("");
   const [fixedNumberId, setFixedNumberId] = useState<string>("");
   const [newPhoneNumber, setNewPhoneNumber] = useState("");
@@ -87,9 +88,10 @@ export default function Transfers() {
       const { error } = await supabase.from("transfers").insert({
         user_id: user!.id,
         amount: parseFloat(amount),
+        profit: parseFloat(profit) || 0,
         type,
         notes: notes || null,
-        fixed_number_id: null, // Regular transfers don't use fixed numbers anymore
+        fixed_number_id: null,
       });
       if (error) throw error;
     },
@@ -98,6 +100,7 @@ export default function Transfers() {
       queryClient.invalidateQueries({ queryKey: ["today-stats"] });
       toast({ title: "تم تسجيل التحويل بنجاح" });
       setAmount("");
+      setProfit("");
       setNotes("");
     },
     onError: () => {
@@ -246,6 +249,26 @@ export default function Transfers() {
                 className="text-2xl h-14 text-center"
                 dir="ltr"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                الربح
+                <span className="text-xs text-muted-foreground">(اختياري)</span>
+              </Label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={profit}
+                onChange={(e) => setProfit(e.target.value)}
+                className="text-lg h-12 text-center"
+                dir="ltr"
+              />
+              {profit && parseFloat(profit) > 0 && (
+                <p className="text-sm text-income font-medium">
+                  الإجمالي: {(parseFloat(amount || "0") + parseFloat(profit)).toLocaleString()} جنيه
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

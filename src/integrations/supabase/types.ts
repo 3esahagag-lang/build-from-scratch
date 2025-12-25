@@ -140,7 +140,9 @@ export type Database = {
           id: string
           is_archived: boolean | null
           name: string
+          profit_per_unit: number | null
           quantity: number | null
+          unit_type: string | null
           user_id: string
         }
         Insert: {
@@ -149,7 +151,9 @@ export type Database = {
           id?: string
           is_archived?: boolean | null
           name: string
+          profit_per_unit?: number | null
           quantity?: number | null
+          unit_type?: string | null
           user_id: string
         }
         Update: {
@@ -158,7 +162,9 @@ export type Database = {
           id?: string
           is_archived?: boolean | null
           name?: string
+          profit_per_unit?: number | null
           quantity?: number | null
+          unit_type?: string | null
           user_id?: string
         }
         Relationships: [
@@ -177,6 +183,7 @@ export type Database = {
           created_at: string | null
           id: string
           item_id: string
+          profit: number | null
           quantity_change: number
           user_id: string
         }
@@ -185,6 +192,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           item_id: string
+          profit?: number | null
           quantity_change: number
           user_id: string
         }
@@ -193,6 +201,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           item_id?: string
+          profit?: number | null
           quantity_change?: number
           user_id?: string
         }
@@ -232,6 +241,7 @@ export type Database = {
           id: string
           is_archived: boolean | null
           notes: string | null
+          profit: number | null
           type: string
           user_id: string
         }
@@ -242,6 +252,7 @@ export type Database = {
           id?: string
           is_archived?: boolean | null
           notes?: string | null
+          profit?: number | null
           type: string
           user_id: string
         }
@@ -252,6 +263,7 @@ export type Database = {
           id?: string
           is_archived?: boolean | null
           notes?: string | null
+          profit?: number | null
           type?: string
           user_id?: string
         }
