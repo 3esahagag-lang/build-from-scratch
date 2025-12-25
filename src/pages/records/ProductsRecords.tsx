@@ -2,22 +2,20 @@ import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowRight, Package, Plus, Minus, ArrowLeftRight } from "lucide-react";
-import { Link } from "react-router-dom";
-import { useState } from "react";
+import { ArrowRight, FolderOpen, Package, RefreshCw, AlertTriangle, ChevronLeft } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function ProductsRecords() {
   const { user } = useAuth();
-  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  // Fetch inventory items
-  const { data: items } = useQuery({
-    queryKey: ["products-records", user?.id],
+  // Fetch categories
+  const { data: categories } = useQuery({
+    queryKey: ["inventory-categories", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("inventory_items")
-        .select("*, inventory_categories(name)")
-        .eq("is_archived", false)
+        .from("inventory_categories")
+        .select("*")
         .order("name");
       if (error) throw error;
       return data;
@@ -25,64 +23,62 @@ export default function ProductsRecords() {
     enabled: !!user,
   });
 
-  // Fetch inventory logs with profit
-  const { data: logs } = useQuery({
-    queryKey: ["inventory-logs-records", user?.id],
+  // Fetch items for counting
+  const { data: items } = useQuery({
+    queryKey: ["inventory-items", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("inventory_logs")
-        .select("*, inventory_items(name, unit_type, profit_per_unit)")
-        .order("created_at", { ascending: false });
+        .from("inventory_items")
+        .select("id, category_id, quantity")
+        .eq("is_archived", false);
       if (error) throw error;
       return data;
     },
     enabled: !!user,
   });
 
-  const formatDate = (date: string) => {
-    const d = new Date(date);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+  // Fetch logs for movement count
+  const { data: logs } = useQuery({
+    queryKey: ["inventory-logs", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_logs")
+        .select("id, item_id");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
 
-    if (d.toDateString() === today.toDateString()) return "اليوم";
-    if (d.toDateString() === yesterday.toDateString()) return "أمس";
-    return d.toLocaleDateString("ar-EG");
+  // Get stats for each category
+  const getCategoryStats = (categoryId: string) => {
+    const categoryItems = items?.filter(i => i.category_id === categoryId) || [];
+    const itemIds = categoryItems.map(i => i.id);
+    const movementsCount = logs?.filter(l => itemIds.includes(l.item_id)).length || 0;
+    const lowStockCount = categoryItems.filter(i => (i.quantity || 0) <= 5).length;
+    
+    return {
+      itemsCount: categoryItems.length,
+      movementsCount,
+      lowStockCount,
+    };
   };
 
-  // Calculate sold quantity for each product
-  const getSoldQuantity = (itemId: string) => {
-    return (
-      logs
-        ?.filter((l) => l.item_id === itemId && l.action === "sell")
-        .reduce((sum, l) => sum + Math.abs(l.quantity_change), 0) || 0
-    );
+  // Get uncategorized items stats
+  const getUncategorizedStats = () => {
+    const uncategorizedItems = items?.filter(i => !i.category_id) || [];
+    const itemIds = uncategorizedItems.map(i => i.id);
+    const movementsCount = logs?.filter(l => itemIds.includes(l.item_id)).length || 0;
+    const lowStockCount = uncategorizedItems.filter(i => (i.quantity || 0) <= 5).length;
+    
+    return {
+      itemsCount: uncategorizedItems.length,
+      movementsCount,
+      lowStockCount,
+    };
   };
 
-  const getAddedQuantity = (itemId: string) => {
-    return (
-      logs
-        ?.filter((l) => l.item_id === itemId && l.action === "add")
-        .reduce((sum, l) => sum + l.quantity_change, 0) || 0
-    );
-  };
-
-  // Calculate total profit for each product
-  const getTotalProfit = (itemId: string) => {
-    return (
-      logs
-        ?.filter((l) => l.item_id === itemId && l.action === "sell")
-        .reduce((sum, l) => sum + Number(l.profit || 0), 0) || 0
-    );
-  };
-
-  const selectedProductLogs = selectedProduct
-    ? logs?.filter((l) => l.item_id === selectedProduct)
-    : null;
-
-  const selectedProductData = selectedProduct
-    ? items?.find((i) => i.id === selectedProduct)
-    : null;
+  const uncategorizedStats = getUncategorizedStats();
 
   return (
     <Layout>
@@ -97,172 +93,102 @@ export default function ProductsRecords() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-foreground">سجل البضاعة</h1>
-            <p className="text-muted-foreground">جميع المنتجات وحركاتها</p>
+            <p className="text-muted-foreground">التصنيفات والمنتجات</p>
           </div>
         </div>
 
-        {/* Product Detail View */}
-        {selectedProduct && selectedProductData && (
-          <div className="animate-fade-in">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-bold">{selectedProductData.name}</h2>
-                <p className="text-sm text-muted-foreground">
-                  الكمية الحالية: {selectedProductData.quantity}
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedProduct(null)}
-                className="text-sm text-primary hover:underline"
-              >
-                رجوع للقائمة
-              </button>
+        {/* Categories List */}
+        <div className="space-y-3">
+          {categories?.length === 0 && uncategorizedStats.itemsCount === 0 ? (
+            <div className="notebook-paper p-8 text-center animate-slide-up">
+              <FolderOpen className="h-12 w-12 mx-auto mb-3 text-muted-foreground/30" />
+              <p className="text-muted-foreground">لا توجد تصنيفات أو منتجات</p>
             </div>
-
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="notebook-paper p-3 text-center">
-                <p className="text-2xl font-bold text-income">
-                  +{getAddedQuantity(selectedProduct)}
-                </p>
-                <p className="text-sm text-muted-foreground">تم إضافتها</p>
-              </div>
-              <div className="notebook-paper p-3 text-center">
-                <p className="text-2xl font-bold text-expense">
-                  -{getSoldQuantity(selectedProduct)}
-                </p>
-                <p className="text-sm text-muted-foreground">تم بيعها</p>
-              </div>
-              <div className="notebook-paper p-3 text-center">
-                <p className="text-2xl font-bold text-income">
-                  +{getTotalProfit(selectedProduct).toLocaleString()}
-                </p>
-                <p className="text-sm text-muted-foreground">إجمالي الربح</p>
-              </div>
-            </div>
-
-            <h3 className="font-bold mb-3 flex items-center gap-2">
-              <ArrowLeftRight className="h-4 w-4" />
-              سجل الحركات
-            </h3>
-            <div className="space-y-2">
-              {selectedProductLogs?.map((log) => {
-                const unitType = log.inventory_items?.unit_type || "قطعة";
-                const profit = Number(log.profit || 0);
+          ) : (
+            <>
+              {categories?.map((category, index) => {
+                const stats = getCategoryStats(category.id);
                 
                 return (
-                  <div
-                    key={log.id}
-                    className="notebook-paper p-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`p-2 rounded-lg ${
-                            log.action === "add" ? "bg-income/10" : "bg-expense/10"
-                          }`}
-                        >
-                          {log.action === "add" ? (
-                            <Plus className="h-4 w-4 text-income" />
-                          ) : (
-                            <Minus className="h-4 w-4 text-expense" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">
-                            {log.action === "add" ? "إضافة" : "بيع"} {Math.abs(log.quantity_change)} {unitType}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(log.created_at!)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-left">
-                        <span
-                          className={`font-bold ${
-                            log.action === "add" ? "text-income" : "text-expense"
-                          }`}
-                        >
-                          {log.action === "add" ? "+" : "-"}
-                          {Math.abs(log.quantity_change)}
-                        </span>
-                        {log.action === "sell" && profit > 0 && (
-                          <p className="text-xs text-income font-medium">
-                            ربح: +{profit.toLocaleString()}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    {log.action === "sell" && profit > 0 && (
-                      <div className="mt-2 pt-2 border-t border-border/50 text-sm">
-                        <div className="flex justify-between text-muted-foreground">
-                          <span>الكمية: {Math.abs(log.quantity_change)} {unitType}</span>
-                          <span className="text-income font-medium">إجمالي الربح: +{profit.toLocaleString()} جنيه</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              {selectedProductLogs?.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">
-                  لا توجد حركات
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Products List */}
-        {!selectedProduct && (
-          <div className="space-y-3 animate-slide-up" style={{ animationDelay: "50ms" }}>
-            {items?.length === 0 ? (
-              <p className="text-center text-muted-foreground py-12 notebook-paper">
-                لا توجد منتجات
-              </p>
-            ) : (
-              items?.map((item) => {
-                const sold = getSoldQuantity(item.id);
-                const added = getAddedQuantity(item.id);
-                const profit = getTotalProfit(item.id);
-
-                return (
                   <button
-                    key={item.id}
-                    onClick={() => setSelectedProduct(item.id)}
-                    className="w-full notebook-paper p-4 text-right hover:bg-muted/30 transition-colors"
+                    key={category.id}
+                    onClick={() => navigate(`/inventory/category/${category.id}`)}
+                    className="w-full notebook-paper p-4 text-right hover:bg-accent/30 hover:shadow-md transition-all duration-200 active:scale-[0.98] animate-slide-up group"
+                    style={{ animationDelay: `${index * 50}ms` }}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-accent/10">
-                          <Package className="h-5 w-5 text-accent" />
+                        <div className="p-3 rounded-xl bg-accent/10">
+                          <FolderOpen className="h-6 w-6 text-accent" />
                         </div>
                         <div>
-                          <p className="font-bold">{item.name}</p>
-                          {item.inventory_categories?.name && (
-                            <p className="text-xs text-muted-foreground">
-                              {item.inventory_categories.name}
-                            </p>
-                          )}
+                          <p className="font-bold text-lg">{category.name}</p>
+                          <div className="flex items-center gap-3 mt-1">
+                            {/* Items Count */}
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Package className="h-3.5 w-3.5" />
+                              <span>{stats.itemsCount}</span>
+                            </div>
+                            {/* Movements Count */}
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <RefreshCw className="h-3.5 w-3.5" />
+                              <span>{stats.movementsCount}</span>
+                            </div>
+                            {/* Low Stock Indicator */}
+                            {stats.lowStockCount > 0 && (
+                              <div className="flex items-center gap-1 text-xs text-amber-500">
+                                <AlertTriangle className="h-3.5 w-3.5" />
+                                <span>{stats.lowStockCount}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="text-left">
-                        <p className="font-bold text-lg">{item.quantity}</p>
-                        <p className="text-xs text-muted-foreground">متبقي</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-4 mt-3 text-sm">
-                      <span className="text-income">+{added} إضافة</span>
-                      <span className="text-expense">-{sold} بيع</span>
-                      {profit > 0 && (
-                        <span className="text-income font-medium">ربح: +{profit.toLocaleString()}</span>
-                      )}
+                      <ChevronLeft className="h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-[-2px] transition-all" />
                     </div>
                   </button>
                 );
-              })
-            )}
-          </div>
-        )}
+              })}
+
+              {/* Uncategorized Items */}
+              {uncategorizedStats.itemsCount > 0 && (
+                <button
+                  onClick={() => navigate(`/inventory/category/uncategorized`)}
+                  className="w-full notebook-paper p-4 text-right hover:bg-accent/30 hover:shadow-md transition-all duration-200 active:scale-[0.98] animate-slide-up group"
+                  style={{ animationDelay: `${(categories?.length || 0) * 50}ms` }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 rounded-xl bg-muted">
+                        <Package className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-lg">بدون تصنيف</p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Package className="h-3.5 w-3.5" />
+                            <span>{uncategorizedStats.itemsCount}</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            <span>{uncategorizedStats.movementsCount}</span>
+                          </div>
+                          {uncategorizedStats.lowStockCount > 0 && (
+                            <div className="flex items-center gap-1 text-xs text-amber-500">
+                              <AlertTriangle className="h-3.5 w-3.5" />
+                              <span>{uncategorizedStats.lowStockCount}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <ChevronLeft className="h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-[-2px] transition-all" />
+                  </div>
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </Layout>
   );

@@ -14,6 +14,7 @@ import Debts from "./pages/Debts";
 import Records from "./pages/Records";
 import TransfersRecords from "./pages/records/TransfersRecords";
 import ProductsRecords from "./pages/records/ProductsRecords";
+import CategoryDetails from "./pages/records/CategoryDetails";
 import DebtsRecords from "./pages/records/DebtsRecords";
 import Reports from "./pages/Reports";
 import SellProducts from "./pages/SellProducts";
@@ -161,6 +162,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ProductsRecords />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory/category/:id"
+        element={
+          <ProtectedRoute>
+            <CategoryDetails />
           </ProtectedRoute>
         }
       />
