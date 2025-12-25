@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,9 @@ import {
   Plus,
   Phone,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  AlertTriangle,
+  Loader2
 } from "lucide-react";
 import {
   Dialog,
@@ -24,11 +26,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import FixedNumberCard from "@/components/FixedNumberCard";
+import { LimitWarning, OperationFeedback, NetworkStatus } from "@/components/OperationFeedback";
+import { useNetworkStatus, usePreventDoubleSubmit } from "@/hooks/useOperationState";
 
 export default function Transfers() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isOnline = useNetworkStatus();
+  const { isSubmitting, wrapSubmit } = usePreventDoubleSubmit();
   
   const [type, setType] = useState<"income" | "expense">("income");
   const [amount, setAmount] = useState("");
@@ -40,6 +46,7 @@ export default function Transfers() {
   const [newFixedLimit, setNewFixedLimit] = useState("");
   const [fixedNumberDialogOpen, setFixedNumberDialogOpen] = useState(false);
   const [showAllNumbers, setShowAllNumbers] = useState(false);
+  const [limitWarningDismissed, setLimitWarningDismissed] = useState(false);
 
   // Fetch fixed numbers
   const { data: fixedNumbers } = useQuery({
@@ -207,8 +214,18 @@ export default function Transfers() {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isOnline) {
+      toast({ 
+        title: "لا يوجد اتصال بالإنترنت", 
+        description: "لن يتم حفظ التحويل حتى يعود الاتصال",
+        variant: "destructive" 
+      });
+      return;
+    }
+    
     if (!amount || parseFloat(amount) <= 0) {
       toast({ title: "أدخل مبلغاً صحيحاً", variant: "destructive" });
       return;
@@ -226,17 +243,43 @@ export default function Transfers() {
         const remaining = Math.max(0, limit - currentUsage);
         toast({ 
           title: "تجاوز الحد الشهري",
-          description: `الحد: ${limit} | المستخدم: ${currentUsage} | المتبقي: ${remaining}`,
+          description: `الحد: ${limit.toLocaleString()} | المستخدم: ${currentUsage.toLocaleString()} | المتبقي: ${remaining.toLocaleString()}`,
           variant: "destructive" 
         });
         return;
       }
       
-      addFixedNumberTransfer.mutate();
+      await wrapSubmit(() => addFixedNumberTransfer.mutateAsync());
     } else {
-      addTransfer.mutate();
+      await wrapSubmit(() => addTransfer.mutateAsync());
     }
   };
+
+  // Check if current selection would exceed limit
+  const getSelectedNumberLimitStatus = () => {
+    if (!fixedNumberId) return null;
+    
+    const selectedNumber = fixedNumbers?.find(fn => fn.id === fixedNumberId);
+    if (!selectedNumber) return null;
+    
+    const limit = Number(selectedNumber.monthly_limit) || 0;
+    if (limit <= 0) return null;
+    
+    const currentUsage = monthlyUsage?.[fixedNumberId] || 0;
+    const newAmount = parseFloat(amount) || 0;
+    const wouldExceed = (currentUsage + newAmount) > limit;
+    const remaining = Math.max(0, limit - currentUsage);
+    
+    return {
+      limit,
+      used: currentUsage,
+      remaining,
+      wouldExceed,
+      newTotal: currentUsage + newAmount,
+    };
+  };
+
+  const limitStatus = getSelectedNumberLimitStatus();
 
   const validatePhoneNumber = (value: string) => {
     // Only allow digits and max 11 characters
@@ -249,6 +292,8 @@ export default function Transfers() {
 
   return (
     <Layout>
+      <NetworkStatus isOnline={isOnline} />
+      
       <div className="space-y-6 pb-20 md:pb-0">
         <div className="animate-slide-up">
           <h1 className="text-2xl font-bold text-foreground">التحويلات</h1>
@@ -443,17 +488,53 @@ export default function Transfers() {
                   لا توجد أرقام مسجلة، أضف رقماً جديداً
                 </div>
               )}
+
+              {/* Limit Warning when fixed number selected */}
+              {fixedNumberId && limitStatus && (
+                <div className="space-y-3 pt-2 border-t border-border">
+                  <LimitWarning
+                    used={limitStatus.used}
+                    limit={limitStatus.limit}
+                    showRemaining={true}
+                  />
+                  
+                  {limitStatus.wouldExceed && parseFloat(amount) > 0 && (
+                    <OperationFeedback
+                      status="error"
+                      message="هذا المبلغ سيتجاوز الحد الشهري"
+                      details={`المتبقي: ${limitStatus.remaining.toLocaleString()} جنيه فقط`}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
           <Button
             type="submit"
-            disabled={addTransfer.isPending || addFixedNumberTransfer.isPending}
+            disabled={
+              addTransfer.isPending || 
+              addFixedNumberTransfer.isPending || 
+              isSubmitting ||
+              !isOnline ||
+              (fixedNumberId && limitStatus?.wouldExceed && parseFloat(amount) > 0)
+            }
             className={`w-full h-14 text-lg action-button ${
               type === "income" ? "bg-income hover:bg-income/90" : "bg-expense hover:bg-expense/90"
             }`}
           >
-            {(addTransfer.isPending || addFixedNumberTransfer.isPending) ? "جاري الحفظ..." : "تسجيل"}
+            {(addTransfer.isPending || addFixedNumberTransfer.isPending || isSubmitting) ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin ml-2" />
+                جاري الحفظ...
+              </>
+            ) : !isOnline ? (
+              "لا يوجد اتصال"
+            ) : (fixedNumberId && limitStatus?.wouldExceed && parseFloat(amount) > 0) ? (
+              "تجاوز الحد الشهري"
+            ) : (
+              "تسجيل"
+            )}
           </Button>
         </form>
       </div>
