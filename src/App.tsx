@@ -12,6 +12,9 @@ import Transfers from "./pages/Transfers";
 import Inventory from "./pages/Inventory";
 import Debts from "./pages/Debts";
 import Records from "./pages/Records";
+import TransfersRecords from "./pages/records/TransfersRecords";
+import ProductsRecords from "./pages/records/ProductsRecords";
+import DebtsRecords from "./pages/records/DebtsRecords";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
@@ -115,6 +118,30 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Records />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/records/transfers"
+        element={
+          <ProtectedRoute>
+            <TransfersRecords />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/records/products"
+        element={
+          <ProtectedRoute>
+            <ProductsRecords />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/records/debts"
+        element={
+          <ProtectedRoute>
+            <DebtsRecords />
           </ProtectedRoute>
         }
       />

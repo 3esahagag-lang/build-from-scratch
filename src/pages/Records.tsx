@@ -1,186 +1,196 @@
-import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, Package, ArrowDownLeft } from "lucide-react";
-import RecordsSummaryCard from "@/components/records/RecordsSummaryCard";
-import TransfersRecordSection from "@/components/records/TransfersRecordSection";
-import InventoryRecordSection from "@/components/records/InventoryRecordSection";
-import DebtsRecordSection from "@/components/records/DebtsRecordSection";
+import { TrendingUp, Package, HandCoins, ChevronLeft } from "lucide-react";
+import { Link } from "react-router-dom";
+
+interface RecordCardProps {
+  icon: React.ReactNode;
+  title: string;
+  stats: { label: string; value: string | number; colorClass?: string }[];
+  to: string;
+}
+
+function RecordCard({ icon, title, stats, to }: RecordCardProps) {
+  return (
+    <Link
+      to={to}
+      className="block notebook-paper p-4 hover:bg-muted/30 transition-all duration-200 active:scale-[0.98]"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-muted">{icon}</div>
+          <div>
+            <h3 className="font-bold text-lg text-foreground">{title}</h3>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {stats.map((stat, i) => (
+                <span
+                  key={i}
+                  className={`text-sm ${stat.colorClass || "text-muted-foreground"}`}
+                >
+                  {stat.label}: <span className="font-semibold">{stat.value}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+        <ChevronLeft className="h-6 w-6 text-muted-foreground" />
+      </div>
+    </Link>
+  );
+}
 
 export default function Records() {
   const { user } = useAuth();
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
-  // Fetch transfers
-  const { data: transfers } = useQuery({
-    queryKey: ["all-transfers", user?.id],
+  // Fetch transfers count and total
+  const { data: transfersData } = useQuery({
+    queryKey: ["records-transfers-summary", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transfers")
-        .select("*, fixed_numbers(name)")
-        .eq("is_archived", false)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return data;
+      const [transfers, fixedNumberTransfers] = await Promise.all([
+        supabase
+          .from("transfers")
+          .select("amount, type")
+          .eq("is_archived", false),
+        supabase
+          .from("fixed_number_transfers")
+          .select("amount"),
+      ]);
+
+      const transfersTotal =
+        (transfers.data?.reduce((sum, t) => {
+          return t.type === "income" ? sum + Number(t.amount) : sum - Number(t.amount);
+        }, 0) || 0) +
+        (fixedNumberTransfers.data?.reduce((sum, t) => sum + Number(t.amount), 0) || 0);
+
+      return {
+        count: (transfers.data?.length || 0) + (fixedNumberTransfers.data?.length || 0),
+        total: transfersTotal,
+      };
     },
     enabled: !!user,
   });
 
-  // Fetch fixed number transfers (with limits)
-  const { data: fixedNumberTransfers } = useQuery({
-    queryKey: ["all-fixed-number-transfers", user?.id],
+  // Fetch inventory summary
+  const { data: inventoryData } = useQuery({
+    queryKey: ["records-inventory-summary", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("fixed_number_transfers")
-        .select("*, fixed_numbers(name, phone_number)")
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return data;
+      const [items, logs] = await Promise.all([
+        supabase
+          .from("inventory_items")
+          .select("quantity")
+          .eq("is_archived", false),
+        supabase.from("inventory_logs").select("id"),
+      ]);
+
+      const totalQuantity = items.data?.reduce((sum, i) => sum + (i.quantity || 0), 0) || 0;
+
+      return {
+        itemsCount: items.data?.length || 0,
+        totalQuantity,
+        movementsCount: logs.data?.length || 0,
+      };
     },
     enabled: !!user,
   });
 
-  // Fetch inventory logs
-  const { data: inventoryLogs } = useQuery({
-    queryKey: ["all-inventory-logs", user?.id],
+  // Fetch debts summary
+  const { data: debtsData } = useQuery({
+    queryKey: ["records-debts-summary", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("inventory_logs")
-        .select("*, inventory_items(name)")
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  // Fetch debts
-  const { data: debts } = useQuery({
-    queryKey: ["all-debts", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("debts")
-        .select("*")
-        .eq("is_archived", false)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return data;
+        .select("amount, type, is_paid")
+        .eq("is_archived", false);
+
+      const owedToMe = data
+        ?.filter((d) => d.type === "owed_to_me" && !d.is_paid)
+        .reduce((sum, d) => sum + Number(d.amount), 0) || 0;
+
+      const owedByMe = data
+        ?.filter((d) => d.type === "owed_by_me" && !d.is_paid)
+        .reduce((sum, d) => sum + Number(d.amount), 0) || 0;
+
+      return { owedToMe, owedByMe, count: data?.filter((d) => !d.is_paid).length || 0 };
     },
     enabled: !!user,
   });
-
-  const formatDate = (date: Date) => {
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) return "اليوم";
-    if (date.toDateString() === yesterday.toDateString()) return "أمس";
-    return date.toLocaleDateString("ar-EG");
-  };
-
-  // Calculate totals
-  const transfersTotal =
-    (transfers?.reduce((sum, t) => {
-      return t.type === "income" ? sum + Number(t.amount) : sum - Number(t.amount);
-    }, 0) || 0) +
-    (fixedNumberTransfers?.reduce((sum, t) => sum + Number(t.amount), 0) || 0);
-
-  const inventoryTotal = inventoryLogs?.reduce(
-    (sum, l) => sum + l.quantity_change,
-    0
-  ) || 0;
-
-  const debtsOwedToMe =
-    debts
-      ?.filter((d) => d.type === "owed_to_me" && !d.is_paid)
-      .reduce((sum, d) => sum + Number(d.amount), 0) || 0;
-
-  const debtsOwedByMe =
-    debts
-      ?.filter((d) => d.type === "owed_by_me" && !d.is_paid)
-      .reduce((sum, d) => sum + Number(d.amount), 0) || 0;
-
-  const toggleSection = (section: string) => {
-    setExpandedSection(expandedSection === section ? null : section);
-  };
 
   return (
     <Layout>
-      <div className="space-y-4 pb-20 md:pb-0">
+      <div className="space-y-6 pb-20 md:pb-0">
+        {/* Header */}
         <div className="animate-slide-up">
           <h1 className="text-2xl font-bold text-foreground">السجل</h1>
           <p className="text-muted-foreground">ملخص كل السجلات</p>
         </div>
 
-        {/* Transfers Section */}
-        <div className="animate-slide-up" style={{ animationDelay: "50ms" }}>
-          <RecordsSummaryCard
-            icon={<TrendingUp className="h-5 w-5 text-primary" />}
-            title="التحويلات"
-            total={transfersTotal.toLocaleString()}
-            subtitle={`${(transfers?.length || 0) + (fixedNumberTransfers?.length || 0)} تحويل`}
-            isExpanded={expandedSection === "transfers"}
-            onToggle={() => toggleSection("transfers")}
-            colorClass={transfersTotal >= 0 ? "text-income" : "text-expense"}
-          >
-            <TransfersRecordSection
-              transfers={transfers?.map((t) => ({
-                ...t,
-                amount: Number(t.amount),
-              })) || []}
-              fixedNumberTransfers={fixedNumberTransfers?.map((t) => ({
-                ...t,
-                amount: Number(t.amount),
-              })) || []}
-              formatDate={formatDate}
+        {/* Record Cards */}
+        <div className="space-y-4">
+          {/* Transfers Card */}
+          <div className="animate-slide-up" style={{ animationDelay: "50ms" }}>
+            <RecordCard
+              icon={<TrendingUp className="h-6 w-6 text-primary" />}
+              title="سجل التحويلات"
+              stats={[
+                {
+                  label: "الإجمالي",
+                  value: (transfersData?.total || 0).toLocaleString(),
+                  colorClass: (transfersData?.total || 0) >= 0 ? "text-income" : "text-expense",
+                },
+                { label: "عدد التحويلات", value: transfersData?.count || 0 },
+              ]}
+              to="/records/transfers"
             />
-          </RecordsSummaryCard>
+          </div>
+
+          {/* Products Card */}
+          <div className="animate-slide-up" style={{ animationDelay: "100ms" }}>
+            <RecordCard
+              icon={<Package className="h-6 w-6 text-accent" />}
+              title="سجل البضاعة"
+              stats={[
+                { label: "عدد الأصناف", value: inventoryData?.itemsCount || 0 },
+                { label: "إجمالي الكمية", value: inventoryData?.totalQuantity || 0 },
+                { label: "الحركات", value: inventoryData?.movementsCount || 0 },
+              ]}
+              to="/records/products"
+            />
+          </div>
+
+          {/* Debts Card */}
+          <div className="animate-slide-up" style={{ animationDelay: "150ms" }}>
+            <RecordCard
+              icon={<HandCoins className="h-6 w-6 text-owed-to-me" />}
+              title="سجل السلف"
+              stats={[
+                {
+                  label: "ليك فلوس",
+                  value: (debtsData?.owedToMe || 0).toLocaleString(),
+                  colorClass: "text-income",
+                },
+                {
+                  label: "عليك فلوس",
+                  value: (debtsData?.owedByMe || 0).toLocaleString(),
+                  colorClass: "text-expense",
+                },
+              ]}
+              to="/records/debts"
+            />
+          </div>
         </div>
 
-        {/* Inventory Section */}
-        <div className="animate-slide-up" style={{ animationDelay: "100ms" }}>
-          <RecordsSummaryCard
-            icon={<Package className="h-5 w-5 text-accent" />}
-            title="البضاعة"
-            total={inventoryTotal > 0 ? `+${inventoryTotal}` : inventoryTotal}
-            subtitle={`${inventoryLogs?.length || 0} حركة`}
-            isExpanded={expandedSection === "inventory"}
-            onToggle={() => toggleSection("inventory")}
-            colorClass="text-accent"
-          >
-            <InventoryRecordSection
-              inventoryLogs={inventoryLogs || []}
-              formatDate={formatDate}
-            />
-          </RecordsSummaryCard>
-        </div>
-
-        {/* Debts Section */}
-        <div className="animate-slide-up" style={{ animationDelay: "150ms" }}>
-          <RecordsSummaryCard
-            icon={<ArrowDownLeft className="h-5 w-5 text-owed-to-me" />}
-            title="السلف"
-            total={`${debtsOwedToMe.toLocaleString()} / ${debtsOwedByMe.toLocaleString()}`}
-            subtitle={`لي: ${debtsOwedToMe.toLocaleString()} • عليّ: ${debtsOwedByMe.toLocaleString()}`}
-            isExpanded={expandedSection === "debts"}
-            onToggle={() => toggleSection("debts")}
-            colorClass="text-foreground"
-          >
-            <DebtsRecordSection
-              debts={debts?.map((d) => ({
-                ...d,
-                amount: Number(d.amount),
-              })) || []}
-              formatDate={formatDate}
-            />
-          </RecordsSummaryCard>
+        {/* Developer Credit */}
+        <div className="animate-slide-up pt-8" style={{ animationDelay: "200ms" }}>
+          <div className="text-center space-y-3">
+            <p className="text-sm text-muted-foreground">تم تطويره محليًا بواسطة</p>
+            <div className="inline-flex items-center justify-center px-6 py-3 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20">
+              <span className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                عيسى
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </Layout>
