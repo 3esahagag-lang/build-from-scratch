@@ -1,32 +1,14 @@
-import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowRight, FolderOpen, Package, Minus, Plus, AlertTriangle } from "lucide-react";
 import { Link, useParams, Navigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { toast } from "sonner";
 
 export default function CategoryDetails() {
   const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
-  const queryClient = useQueryClient();
   const isUncategorized = id === "uncategorized";
-
-  const [sellDialogOpen, setSellDialogOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [sellQuantity, setSellQuantity] = useState("1");
 
   // Fetch category details
   const { data: category, isLoading: categoryLoading } = useQuery({
@@ -84,79 +66,6 @@ export default function CategoryDetails() {
     },
     enabled: !!user && !!items && items.length > 0,
   });
-
-  // Sell item mutation
-  const sellMutation = useMutation({
-    mutationFn: async ({ itemId, quantity, profit }: { itemId: string; quantity: number; profit: number }) => {
-      // First, get current quantity
-      const { data: currentItem, error: fetchError } = await supabase
-        .from("inventory_items")
-        .select("quantity")
-        .eq("id", itemId)
-        .single();
-      
-      if (fetchError) throw fetchError;
-      
-      const newQuantity = (currentItem.quantity || 0) - quantity;
-      if (newQuantity < 0) throw new Error("الكمية المطلوبة أكبر من المتاحة");
-
-      // Update item quantity
-      const { error: updateError } = await supabase
-        .from("inventory_items")
-        .update({ quantity: newQuantity })
-        .eq("id", itemId);
-      
-      if (updateError) throw updateError;
-
-      // Log the sale with profit
-      const { error: logError } = await supabase
-        .from("inventory_logs")
-        .insert({
-          user_id: user!.id,
-          item_id: itemId,
-          quantity_change: -quantity,
-          action: "sell",
-          profit: profit,
-        });
-      
-      if (logError) throw logError;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["category-items", id] });
-      queryClient.invalidateQueries({ queryKey: ["category-logs", id] });
-      queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
-      queryClient.invalidateQueries({ queryKey: ["inventory-logs"] });
-      toast.success("تم تسجيل البيع بنجاح");
-      setSellDialogOpen(false);
-      setSelectedItem(null);
-      setSellQuantity("1");
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "فشل تسجيل البيع");
-    },
-  });
-
-  const openSellDialog = (item: any) => {
-    setSelectedItem(item);
-    setSellQuantity("1");
-    setSellDialogOpen(true);
-  };
-
-  const handleSell = () => {
-    if (!selectedItem) return;
-    const quantity = parseInt(sellQuantity) || 0;
-    if (quantity <= 0) {
-      toast.error("أدخل كمية صحيحة");
-      return;
-    }
-    if (quantity > (selectedItem.quantity || 0)) {
-      toast.error("الكمية المطلوبة أكبر من المتاحة");
-      return;
-    }
-    
-    const profit = quantity * (Number(selectedItem.profit_per_unit) || 0);
-    sellMutation.mutate({ itemId: selectedItem.id, quantity, profit });
-  };
 
   // Get item stats
   const getItemStats = (itemId: string) => {
@@ -230,7 +139,14 @@ export default function CategoryDetails() {
           </div>
         </div>
 
-        {/* Items List */}
+        {/* Notice: Selling from Dashboard */}
+        <div className="bg-muted/50 border border-border rounded-xl p-4 animate-slide-up">
+          <p className="text-sm text-muted-foreground text-center">
+            💡 لبيع المنتجات، استخدم زر "بيع بضاعتك" من الصفحة الرئيسية
+          </p>
+        </div>
+
+        {/* Items List - Display Only */}
         <div className="space-y-3">
           {items?.length === 0 ? (
             <div className="notebook-paper p-8 text-center animate-slide-up">
@@ -258,7 +174,7 @@ export default function CategoryDetails() {
                       <div>
                         <p className="font-bold">{item.name}</p>
                         {profitPerUnit > 0 && (
-                          <p className="text-xs text-income">
+                          <p className="text-xs text-success">
                             ربح ال{unitType}: {profitPerUnit.toLocaleString()} جنيه
                           </p>
                         )}
@@ -273,13 +189,13 @@ export default function CategoryDetails() {
                   </div>
 
                   {/* Stats Row */}
-                  <div className="flex items-center gap-4 mb-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <Minus className="h-3 w-3 text-expense" />
+                      <Minus className="h-3 w-3 text-destructive" />
                       مباع: {stats.totalSold}
                     </span>
                     {stats.totalProfit > 0 && (
-                      <span className="flex items-center gap-1 text-income font-medium">
+                      <span className="flex items-center gap-1 text-success font-medium">
                         <Plus className="h-3 w-3" />
                         ربح: {stats.totalProfit.toLocaleString()}
                       </span>
@@ -291,80 +207,12 @@ export default function CategoryDetails() {
                       </span>
                     )}
                   </div>
-
-                  {/* Sell Action */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full border-expense/30 text-expense hover:bg-expense/10 hover:text-expense"
-                    onClick={() => openSellDialog(item)}
-                    disabled={(item.quantity || 0) === 0}
-                  >
-                    <Minus className="h-4 w-4 ml-2" />
-                    بيع
-                  </Button>
                 </div>
               );
             })
           )}
         </div>
       </div>
-
-      {/* Sell Dialog */}
-      <Dialog open={sellDialogOpen} onOpenChange={setSellDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>بيع {selectedItem?.name}</DialogTitle>
-            <DialogDescription>
-              أدخل الكمية المراد بيعها
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="notebook-paper p-3 text-center">
-              <p className="text-sm text-muted-foreground">المتاح</p>
-              <p className="text-2xl font-bold text-primary">
-                {selectedItem?.quantity || 0} {selectedItem?.unit_type || "قطعة"}
-              </p>
-            </div>
-            
-            <div className="space-y-2">
-              <Label>الكمية</Label>
-              <Input
-                type="number"
-                min="1"
-                max={selectedItem?.quantity || 0}
-                value={sellQuantity}
-                onChange={(e) => setSellQuantity(e.target.value)}
-                dir="ltr"
-                className="text-center text-lg"
-              />
-            </div>
-
-            {Number(selectedItem?.profit_per_unit) > 0 && (
-              <div className="notebook-paper p-3 bg-income/5 border-income/20">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">الربح المتوقع</span>
-                  <span className="text-lg font-bold text-income">
-                    +{((parseInt(sellQuantity) || 0) * Number(selectedItem?.profit_per_unit || 0)).toLocaleString()} جنيه
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSellDialogOpen(false)}>
-              إلغاء
-            </Button>
-            <Button 
-              onClick={handleSell} 
-              disabled={sellMutation.isPending}
-              className="bg-expense hover:bg-expense/90"
-            >
-              {sellMutation.isPending ? "جاري البيع..." : "تأكيد البيع"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Layout>
   );
 }
