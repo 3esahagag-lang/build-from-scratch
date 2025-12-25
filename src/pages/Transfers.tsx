@@ -48,6 +48,7 @@ export default function Transfers() {
       const { data, error } = await supabase
         .from("fixed_numbers")
         .select("*")
+        .order("is_disabled", { ascending: true })
         .order("created_at", { ascending: false });
       
       if (error) throw error;
@@ -165,6 +166,44 @@ export default function Transfers() {
     },
     onError: () => {
       toast({ title: "حدث خطأ - تأكد من صحة الرقم", variant: "destructive" });
+    },
+  });
+
+  // Update fixed number mutation
+  const updateFixedNumber = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { phone_number?: string; name?: string; monthly_limit?: number } }) => {
+      const { error } = await supabase
+        .from("fixed_numbers")
+        .update(data)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["fixed-numbers"] });
+      toast({ title: "تم تحديث الرقم بنجاح" });
+    },
+    onError: () => {
+      toast({ title: "حدث خطأ في التحديث", variant: "destructive" });
+    },
+  });
+
+  // Disable fixed number mutation
+  const disableFixedNumber = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("fixed_numbers")
+        .update({ is_disabled: true })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["fixed-numbers"] });
+      toast({ title: "تم تعطيل الرقم" });
+      // Clear selection if the disabled number was selected
+      setFixedNumberId("");
+    },
+    onError: () => {
+      toast({ title: "حدث خطأ", variant: "destructive" });
     },
   });
 
@@ -354,16 +393,25 @@ export default function Transfers() {
                   {displayedNumbers?.map((fn) => {
                     const used = monthlyUsage?.[fn.id] || 0;
                     const limit = Number(fn.monthly_limit);
+                    const isDisabled = fn.is_disabled ?? false;
                     
                     return (
                       <FixedNumberCard
                         key={fn.id}
+                        id={fn.id}
                         phoneNumber={fn.phone_number || fn.name}
                         name={fn.phone_number ? fn.name : ""}
                         used={used}
                         limit={limit}
+                        isDisabled={isDisabled}
                         isSelected={fixedNumberId === fn.id}
-                        onSelect={() => setFixedNumberId(fixedNumberId === fn.id ? "" : fn.id)}
+                        onSelect={() => {
+                          if (!isDisabled) {
+                            setFixedNumberId(fixedNumberId === fn.id ? "" : fn.id);
+                          }
+                        }}
+                        onUpdate={(id, data) => updateFixedNumber.mutate({ id, data })}
+                        onDisable={(id) => disableFixedNumber.mutate(id)}
                       />
                     );
                   })}

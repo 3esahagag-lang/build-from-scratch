@@ -89,6 +89,7 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          is_disabled: boolean | null
           monthly_limit: number | null
           name: string
           phone_number: string | null
@@ -97,6 +98,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
+          is_disabled?: boolean | null
           monthly_limit?: number | null
           name: string
           phone_number?: string | null
@@ -105,6 +107,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
+          is_disabled?: boolean | null
           monthly_limit?: number | null
           name?: string
           phone_number?: string | null
