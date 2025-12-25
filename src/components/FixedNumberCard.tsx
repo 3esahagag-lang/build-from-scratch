@@ -110,12 +110,12 @@ export default function FixedNumberCard({
     <>
       <div
         onClick={handleCardClick}
-        className={`relative p-4 rounded-xl border-2 transition-all ${
+        className={`relative p-4 rounded-xl border-2 transition-all duration-200 ${
           isDisabled 
             ? "border-border/50 bg-muted/30 opacity-60 cursor-not-allowed"
             : isSelected
               ? "border-primary bg-primary/5 cursor-pointer"
-              : "border-border hover:border-primary/50 bg-card cursor-pointer"
+              : "border-border hover:border-primary/50 hover:bg-accent/30 hover:shadow-md active:scale-[0.98] bg-card cursor-pointer"
         }`}
       >
         {/* Top Actions Bar */}
@@ -306,15 +306,15 @@ export default function FixedNumberCard({
             
             {/* Name */}
             {name && (
-              <p className="text-sm text-muted-foreground truncate mb-1">{name}</p>
+              <p className="text-sm text-muted-foreground truncate mb-2">{name}</p>
             )}
             
             {/* Clickable Hint */}
             {!isDisabled && (
-              <p className="text-xs text-primary/70 flex items-center gap-1 mt-1">
-                <ChevronLeft className="h-3 w-3" />
-                اضغط لعرض التفاصيل
-              </p>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground/80 mt-1">
+                <span>عرض بيانات الرقم</span>
+                <ChevronLeft className="h-4 w-4" />
+              </div>
             )}
             
             {/* Usage stats */}
