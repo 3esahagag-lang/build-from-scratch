@@ -2,58 +2,27 @@ import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowRight, TrendingUp, TrendingDown, Phone, User, ChevronLeft } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
-import { Progress } from "@/components/ui/progress";
+import { ArrowRight, TrendingUp, TrendingDown, ArrowUpCircle, ArrowDownCircle, Hash } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function TransfersRecords() {
   const { user } = useAuth();
-  const navigate = useNavigate();
 
-  // Fetch transfers
+  // Fetch general transfers only (no fixed_number_id)
   const { data: transfers } = useQuery({
     queryKey: ["transfers-records", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transfers")
-        .select("*, fixed_numbers(name)")
-        .eq("is_archived", false)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  // Fetch fixed numbers with their limits
-  const { data: fixedNumbers } = useQuery({
-    queryKey: ["fixed-numbers-records", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("fixed_numbers")
         .select("*")
-        .order("name");
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
-  // Fetch fixed number transfers
-  const { data: fixedNumberTransfers } = useQuery({
-    queryKey: ["fixed-number-transfers-records", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("fixed_number_transfers")
-        .select("*, fixed_numbers(name, phone_number)")
+        .eq("is_archived", false)
+        .is("fixed_number_id", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
     enabled: !!user,
   });
-
-  const generalTransfers = transfers?.filter((t) => !t.fixed_number_id) || [];
 
   const formatDate = (date: string) => {
     const d = new Date(date);
@@ -66,20 +35,10 @@ export default function TransfersRecords() {
     return d.toLocaleDateString("ar-EG");
   };
 
-  // Calculate monthly usage for each fixed number
-  const getMonthlyUsage = (fixedNumberId: string) => {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-
-    return fixedNumberTransfers
-      ?.filter(
-        (t) =>
-          t.fixed_number_id === fixedNumberId &&
-          new Date(t.created_at) >= startOfMonth
-      )
-      .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-  };
+  // Calculate summary stats
+  const totalIncome = transfers?.filter(t => t.type === "income").reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+  const totalExpense = transfers?.filter(t => t.type === "expense").reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+  const totalCount = transfers?.length || 0;
 
   return (
     <Layout>
@@ -94,23 +53,53 @@ export default function TransfersRecords() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-foreground">سجل التحويلات</h1>
-            <p className="text-muted-foreground">جميع التحويلات والأرقام الثابتة</p>
+            <p className="text-muted-foreground">ملخص التحويلات العامة</p>
           </div>
         </div>
 
-        {/* General Transfers Section */}
-        <section className="animate-slide-up" style={{ animationDelay: "50ms" }}>
-          <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
-            <User className="h-5 w-5 text-primary" />
-            تحويلات عامة
-          </h2>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-3 gap-3 animate-slide-up" style={{ animationDelay: "50ms" }}>
+          <div className="notebook-paper p-3 text-center">
+            <div className="flex justify-center mb-2">
+              <div className="p-2 rounded-lg bg-muted">
+                <Hash className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </div>
+            <p className="text-lg font-bold">{totalCount}</p>
+            <p className="text-xs text-muted-foreground">إجمالي التحويلات</p>
+          </div>
+          
+          <div className="notebook-paper p-3 text-center">
+            <div className="flex justify-center mb-2">
+              <div className="p-2 rounded-lg bg-income/10">
+                <ArrowUpCircle className="h-4 w-4 text-income" />
+              </div>
+            </div>
+            <p className="text-lg font-bold text-income">{totalIncome.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">إجمالي الدخل</p>
+          </div>
+          
+          <div className="notebook-paper p-3 text-center">
+            <div className="flex justify-center mb-2">
+              <div className="p-2 rounded-lg bg-expense/10">
+                <ArrowDownCircle className="h-4 w-4 text-expense" />
+              </div>
+            </div>
+            <p className="text-lg font-bold text-expense">{totalExpense.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">إجمالي المصروفات</p>
+          </div>
+        </div>
+
+        {/* Recent Transfers */}
+        <section className="animate-slide-up" style={{ animationDelay: "100ms" }}>
+          <h2 className="text-lg font-bold mb-3">التحويلات الأخيرة</h2>
           <div className="space-y-2">
-            {generalTransfers.length === 0 ? (
+            {transfers?.length === 0 ? (
               <p className="text-center text-muted-foreground py-6 notebook-paper">
-                لا توجد تحويلات عامة
+                لا توجد تحويلات
               </p>
             ) : (
-              generalTransfers.slice(0, 20).map((t) => (
+              transfers?.slice(0, 20).map((t) => (
                 <div
                   key={t.id}
                   className="notebook-paper p-3"
@@ -137,100 +126,17 @@ export default function TransfersRecords() {
                         </p>
                       </div>
                     </div>
-                    <div className="text-left">
-                      <span
-                        className={`font-bold ${
-                          t.type === "income" ? "text-income" : "text-expense"
-                        }`}
-                      >
-                        {t.type === "income" ? "+" : "-"}
-                        {Number(t.amount).toLocaleString()}
-                      </span>
-                      {Number(t.profit) > 0 && (
-                        <p className="text-xs text-income font-medium">
-                          الربح: +{Number(t.profit).toLocaleString()}
-                        </p>
-                      )}
-                    </div>
+                    <span
+                      className={`font-bold ${
+                        t.type === "income" ? "text-income" : "text-expense"
+                      }`}
+                    >
+                      {t.type === "income" ? "+" : "-"}
+                      {Number(t.amount).toLocaleString()}
+                    </span>
                   </div>
-                  {Number(t.profit) > 0 && (
-                    <div className="mt-2 pt-2 border-t border-border/50 text-sm text-muted-foreground">
-                      <div className="flex justify-between">
-                        <span>المبلغ: {Number(t.amount).toLocaleString()}</span>
-                        <span className="text-income">الربح: +{Number(t.profit).toLocaleString()}</span>
-                      </div>
-                      <div className="text-left font-medium text-foreground">
-                        الإجمالي: {(Number(t.amount) + Number(t.profit)).toLocaleString()} جنيه
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))
-            )}
-          </div>
-        </section>
-
-        {/* Fixed Numbers Section */}
-        <section className="animate-slide-up" style={{ animationDelay: "100ms" }}>
-          <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
-            <Phone className="h-5 w-5 text-accent" />
-            الأرقام الثابتة
-          </h2>
-          <div className="space-y-3">
-            {fixedNumbers?.length === 0 ? (
-              <p className="text-center text-muted-foreground py-6 notebook-paper">
-                لا توجد أرقام ثابتة
-              </p>
-            ) : (
-              fixedNumbers?.map((fn) => {
-                const usage = getMonthlyUsage(fn.id);
-                const limit = fn.monthly_limit || 0;
-                const percentage = limit > 0 ? Math.min((usage / limit) * 100, 100) : 0;
-
-                return (
-                  <button
-                    key={fn.id}
-                    onClick={() => navigate(`/numbers/${fn.id}`)}
-                    className="w-full notebook-paper p-4 text-right hover:bg-accent/30 hover:shadow-md transition-all duration-200 active:scale-[0.98]"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold">{fn.name}</span>
-                        {fn.is_disabled && (
-                          <span className="px-2 py-0.5 rounded-full bg-destructive/20 text-destructive text-xs">
-                            معطّل
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">
-                          {fn.phone_number}
-                        </span>
-                        <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    </div>
-                    {limit > 0 && (
-                      <>
-                        <Progress value={percentage} className="h-2 mb-2" />
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>المستخدم: {usage.toLocaleString()}</span>
-                          <span>الحد: {limit.toLocaleString()}</span>
-                        </div>
-                      </>
-                    )}
-                    {limit === 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        المحول هذا الشهر: {usage.toLocaleString()}
-                      </p>
-                    )}
-                    
-                    {/* Hint text */}
-                    <p className="text-xs text-muted-foreground/70 mt-2 pt-2 border-t border-border/50">
-                      عرض بيانات الرقم
-                    </p>
-                  </button>
-                );
-              })
             )}
           </div>
         </section>
