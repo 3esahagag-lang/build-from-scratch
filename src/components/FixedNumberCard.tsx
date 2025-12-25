@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Phone, Gauge, Settings, Edit2, Gauge as LimitIcon, Ban } from "lucide-react";
+import { Phone, Gauge, Settings, Edit2, Gauge as LimitIcon, Ban, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -306,7 +306,15 @@ export default function FixedNumberCard({
             
             {/* Name */}
             {name && (
-              <p className="text-sm text-muted-foreground truncate">{name}</p>
+              <p className="text-sm text-muted-foreground truncate mb-1">{name}</p>
+            )}
+            
+            {/* Clickable Hint */}
+            {!isDisabled && (
+              <p className="text-xs text-primary/70 flex items-center gap-1 mt-1">
+                <ChevronLeft className="h-3 w-3" />
+                اضغط لعرض التفاصيل
+              </p>
             )}
             
             {/* Usage stats */}
