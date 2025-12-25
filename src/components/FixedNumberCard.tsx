@@ -81,6 +81,7 @@ export default function FixedNumberCard({
     if (editPhoneNumber.length === 11 && onUpdate) {
       onUpdate(id, { phone_number: editPhoneNumber, name: editName || editPhoneNumber });
       setEditMode(null);
+      setManageOpen(false);
     }
   };
 
@@ -88,6 +89,7 @@ export default function FixedNumberCard({
     if (onUpdate) {
       onUpdate(id, { monthly_limit: parseFloat(editLimit) || 0 });
       setEditMode(null);
+      setManageOpen(false);
     }
   };
 
@@ -99,7 +101,7 @@ export default function FixedNumberCard({
     }
   };
 
-  const handleCardClick = (e: React.MouseEvent) => {
+  const handleCardClick = () => {
     if (isDisabled) return;
     onSelect?.();
   };
@@ -116,179 +118,183 @@ export default function FixedNumberCard({
               : "border-border hover:border-primary/50 bg-card cursor-pointer"
         }`}
       >
-        {/* Manage Button */}
-        <Drawer open={manageOpen} onOpenChange={setManageOpen}>
-          <DrawerTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute top-2 left-2 h-8 w-8 hover:bg-muted"
-              onClick={(e) => {
-                e.stopPropagation();
-              }}
-            >
-              <Settings className="h-4 w-4 text-muted-foreground" />
-            </Button>
-          </DrawerTrigger>
-          <DrawerContent className="max-h-[85dvh]">
-            <DrawerHeader className="border-b border-border pb-4">
-              <DrawerTitle className="text-xl">إدارة الرقم</DrawerTitle>
-              <p className="text-sm text-muted-foreground font-mono" dir="ltr">{phoneNumber}</p>
-            </DrawerHeader>
-            
-            <div className="p-4 space-y-4 overflow-y-auto">
-              {editMode === null && (
-                <div className="space-y-3">
-                  {/* Edit Number */}
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start gap-3 h-14"
-                    onClick={() => {
-                      setEditPhoneNumber(phoneNumber);
-                      setEditName(name);
-                      setEditMode("number");
-                    }}
-                  >
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <Edit2 className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">تعديل الرقم</p>
-                      <p className="text-xs text-muted-foreground">تغيير رقم الهاتف أو الاسم</p>
-                    </div>
-                  </Button>
-
-                  {/* Edit Limit */}
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start gap-3 h-14"
-                    onClick={() => {
-                      setEditLimit(limit.toString());
-                      setEditMode("limit");
-                    }}
-                  >
-                    <div className="p-2 rounded-lg bg-amber-500/10">
-                      <LimitIcon className="h-5 w-5 text-amber-500" />
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">تعديل الحد الشهري</p>
-                      <p className="text-xs text-muted-foreground">
-                        الحد الحالي: {limit > 0 ? `${limit.toLocaleString()} ج.م` : "غير محدد"}
-                      </p>
-                    </div>
-                  </Button>
-
-                  {/* Disable */}
-                  {!isDisabled && (
+        {/* Top Actions Bar */}
+        <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
+          {/* Disabled Badge */}
+          {isDisabled && (
+            <div className="px-2.5 py-1 rounded-full bg-destructive/20 text-destructive text-xs font-medium">
+              معطّل
+            </div>
+          )}
+          
+          {/* Manage Button - positioned at left (RTL) */}
+          <Drawer open={manageOpen} onOpenChange={setManageOpen}>
+            <DrawerTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-9 w-9 p-0 ml-auto hover:bg-muted bg-muted/60 rounded-lg transition-all pointer-events-auto"
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+              >
+                <Settings className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
+              </Button>
+            </DrawerTrigger>
+            <DrawerContent className="max-h-[85dvh]">
+              <DrawerHeader className="border-b border-border pb-4">
+                <DrawerTitle className="text-xl">إدارة الرقم</DrawerTitle>
+                <p className="text-sm text-muted-foreground font-mono" dir="ltr">{phoneNumber}</p>
+              </DrawerHeader>
+              
+              <div className="p-4 space-y-4 overflow-y-auto">
+                {editMode === null && (
+                  <div className="space-y-3">
+                    {/* Edit Number */}
                     <Button
                       variant="outline"
-                      className="w-full justify-start gap-3 h-14 border-destructive/30 hover:bg-destructive/10"
-                      onClick={() => setDisableDialogOpen(true)}
+                      className="w-full justify-start gap-3 h-14"
+                      onClick={() => {
+                        setEditPhoneNumber(phoneNumber);
+                        setEditName(name);
+                        setEditMode("number");
+                      }}
                     >
-                      <div className="p-2 rounded-lg bg-destructive/10">
-                        <Ban className="h-5 w-5 text-destructive" />
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <Edit2 className="h-5 w-5 text-primary" />
                       </div>
                       <div className="text-right">
-                        <p className="font-medium text-destructive">تعطيل الرقم</p>
-                        <p className="text-xs text-muted-foreground">إيقاف التحويلات على هذا الرقم</p>
+                        <p className="font-medium">تعديل الرقم</p>
+                        <p className="text-xs text-muted-foreground">تغيير رقم الهاتف أو الاسم</p>
                       </div>
                     </Button>
-                  )}
-                </div>
-              )}
 
-              {/* Edit Number Form */}
-              {editMode === "number" && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>رقم الهاتف (11 رقم)</Label>
-                    <Input
-                      type="tel"
-                      placeholder="01xxxxxxxxx"
-                      value={editPhoneNumber}
-                      onChange={(e) => validatePhoneNumber(e.target.value)}
-                      className="text-center font-mono text-lg"
-                      dir="ltr"
-                      maxLength={11}
-                    />
-                    <p className="text-xs text-muted-foreground text-center">
-                      {editPhoneNumber.length}/11 رقم
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>اسم مميز (اختياري)</Label>
-                    <Input
-                      placeholder="مثال: محمد أحمد"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex gap-2">
+                    {/* Edit Limit */}
                     <Button
                       variant="outline"
-                      className="flex-1"
-                      onClick={() => setEditMode(null)}
+                      className="w-full justify-start gap-3 h-14"
+                      onClick={() => {
+                        setEditLimit(limit.toString());
+                        setEditMode("limit");
+                      }}
                     >
-                      إلغاء
+                      <div className="p-2 rounded-lg bg-amber-500/10">
+                        <LimitIcon className="h-5 w-5 text-amber-500" />
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">تعديل الحد الشهري</p>
+                        <p className="text-xs text-muted-foreground">
+                          الحد الحالي: {limit > 0 ? `${limit.toLocaleString()} ج.م` : "غير محدد"}
+                        </p>
+                      </div>
                     </Button>
-                    <Button
-                      className="flex-1"
-                      disabled={editPhoneNumber.length !== 11}
-                      onClick={handleSaveNumber}
-                    >
-                      حفظ
-                    </Button>
-                  </div>
-                </div>
-              )}
 
-              {/* Edit Limit Form */}
-              {editMode === "limit" && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>الحد الشهري للتحويلات</Label>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      value={editLimit}
-                      onChange={(e) => setEditLimit(e.target.value)}
-                      className="text-center text-lg"
-                      dir="ltr"
-                    />
-                    <p className="text-xs text-muted-foreground text-center">
-                      اتركه 0 لإلغاء الحد
-                    </p>
+                    {/* Disable */}
+                    {!isDisabled && (
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start gap-3 h-14 border-destructive/30 hover:bg-destructive/10"
+                        onClick={() => setDisableDialogOpen(true)}
+                      >
+                        <div className="p-2 rounded-lg bg-destructive/10">
+                          <Ban className="h-5 w-5 text-destructive" />
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-destructive">تعطيل الرقم</p>
+                          <p className="text-xs text-muted-foreground">إيقاف التحويلات على هذا الرقم</p>
+                        </div>
+                      </Button>
+                    )}
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => setEditMode(null)}
-                    >
-                      إلغاء
-                    </Button>
-                    <Button
-                      className="flex-1"
-                      onClick={handleSaveLimit}
-                    >
-                      حفظ
-                    </Button>
+                )}
+
+                {/* Edit Number Form */}
+                {editMode === "number" && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>رقم الهاتف (11 رقم)</Label>
+                      <Input
+                        type="tel"
+                        placeholder="01xxxxxxxxx"
+                        value={editPhoneNumber}
+                        onChange={(e) => validatePhoneNumber(e.target.value)}
+                        className="text-center font-mono text-lg"
+                        dir="ltr"
+                        maxLength={11}
+                      />
+                      <p className="text-xs text-muted-foreground text-center">
+                        {editPhoneNumber.length}/11 رقم
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>اسم مميز (اختياري)</Label>
+                      <Input
+                        placeholder="مثال: محمد أحمد"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setEditMode(null)}
+                      >
+                        إلغاء
+                      </Button>
+                      <Button
+                        className="flex-1"
+                        disabled={editPhoneNumber.length !== 11}
+                        onClick={handleSaveNumber}
+                      >
+                        حفظ
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </DrawerContent>
-        </Drawer>
+                )}
 
-        {/* Disabled Badge */}
-        {isDisabled && (
-          <div className="absolute top-2 right-2 px-2 py-1 rounded-full bg-destructive/20 text-destructive text-xs font-medium">
-            معطّل
-          </div>
-        )}
+                {/* Edit Limit Form */}
+                {editMode === "limit" && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>الحد الشهري للتحويلات</Label>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={editLimit}
+                        onChange={(e) => setEditLimit(e.target.value)}
+                        className="text-center text-lg"
+                        dir="ltr"
+                      />
+                      <p className="text-xs text-muted-foreground text-center">
+                        اتركه 0 لإلغاء الحد
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setEditMode(null)}
+                      >
+                        إلغاء
+                      </Button>
+                      <Button
+                        className="flex-1"
+                        onClick={handleSaveLimit}
+                      >
+                        حفظ
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </DrawerContent>
+          </Drawer>
+        </div>
 
-        <div className="flex items-start justify-between gap-3">
+        {/* Card Content - with top padding for the actions bar */}
+        <div className="flex items-start justify-between gap-3 mt-6">
           <div className="flex-1 min-w-0">
             {/* Phone number display */}
             <div className="flex items-center gap-2 mb-1">
