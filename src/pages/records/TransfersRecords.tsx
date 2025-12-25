@@ -158,37 +158,57 @@ export default function TransfersRecords() {
                   generalTransfers.slice(0, 20).map((t) => (
                     <div
                       key={t.id}
-                      className="notebook-paper p-3 flex items-center justify-between"
+                      className="notebook-paper p-3"
                     >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`p-2 rounded-lg ${
-                            t.type === "income" ? "bg-income/10" : "bg-expense/10"
-                          }`}
-                        >
-                          {t.type === "income" ? (
-                            <TrendingUp className="h-4 w-4 text-income" />
-                          ) : (
-                            <TrendingDown className="h-4 w-4 text-expense" />
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`p-2 rounded-lg ${
+                              t.type === "income" ? "bg-income/10" : "bg-expense/10"
+                            }`}
+                          >
+                            {t.type === "income" ? (
+                              <TrendingUp className="h-4 w-4 text-income" />
+                            ) : (
+                              <TrendingDown className="h-4 w-4 text-expense" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">
+                              {t.notes || (t.type === "income" ? "دخل" : "مصروف")}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDate(t.created_at!)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-left">
+                          <span
+                            className={`font-bold ${
+                              t.type === "income" ? "text-income" : "text-expense"
+                            }`}
+                          >
+                            {t.type === "income" ? "+" : "-"}
+                            {Number(t.amount).toLocaleString()}
+                          </span>
+                          {Number(t.profit) > 0 && (
+                            <p className="text-xs text-income font-medium">
+                              الربح: +{Number(t.profit).toLocaleString()}
+                            </p>
                           )}
                         </div>
-                        <div>
-                          <p className="font-medium text-sm">
-                            {t.notes || (t.type === "income" ? "دخل" : "مصروف")}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDate(t.created_at!)}
-                          </p>
-                        </div>
                       </div>
-                      <span
-                        className={`font-bold ${
-                          t.type === "income" ? "text-income" : "text-expense"
-                        }`}
-                      >
-                        {t.type === "income" ? "+" : "-"}
-                        {Number(t.amount).toLocaleString()}
-                      </span>
+                      {Number(t.profit) > 0 && (
+                        <div className="mt-2 pt-2 border-t border-border/50 text-sm text-muted-foreground">
+                          <div className="flex justify-between">
+                            <span>المبلغ: {Number(t.amount).toLocaleString()}</span>
+                            <span className="text-income">الربح: +{Number(t.profit).toLocaleString()}</span>
+                          </div>
+                          <div className="text-left font-medium text-foreground">
+                            الإجمالي: {(Number(t.amount) + Number(t.profit)).toLocaleString()} جنيه
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}

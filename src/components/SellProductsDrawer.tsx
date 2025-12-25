@@ -26,6 +26,8 @@ interface InventoryItem {
   name: string;
   quantity: number;
   category_id: string | null;
+  profit_per_unit: number;
+  unit_type: string;
 }
 
 // Separated business logic for selling products
@@ -33,9 +35,11 @@ async function sellProduct(
   userId: string,
   itemId: string,
   currentQuantity: number,
-  sellQuantity: number
+  sellQuantity: number,
+  profitPerUnit: number
 ): Promise<void> {
   const newQuantity = currentQuantity - sellQuantity;
+  const totalProfit = sellQuantity * profitPerUnit;
 
   console.log("[sellProduct] Attempting sale:", {
     userId,
@@ -43,6 +47,8 @@ async function sellProduct(
     currentQuantity,
     sellQuantity,
     newQuantity,
+    profitPerUnit,
+    totalProfit,
   });
 
   // Step 1: Update item quantity
@@ -56,12 +62,13 @@ async function sellProduct(
     throw new Error(`فشل تحديث الكمية: ${updateError.message}`);
   }
 
-  // Step 2: Create sale log record (action must be 'sell' per DB constraint)
+  // Step 2: Create sale log record with profit
   const { error: logError } = await supabase.from("inventory_logs").insert({
     item_id: itemId,
     user_id: userId,
     action: "sell",
     quantity_change: -sellQuantity,
+    profit: totalProfit,
   });
 
   if (logError) {
@@ -74,7 +81,7 @@ async function sellProduct(
     throw new Error(`فشل تسجيل البيع: ${logError.message}`);
   }
 
-  console.log("[sellProduct] Sale completed successfully");
+  console.log("[sellProduct] Sale completed successfully with profit:", totalProfit);
 }
 
 export default function SellProductsDrawer({
@@ -93,7 +100,7 @@ export default function SellProductsDrawer({
       console.log("[SellProductsDrawer] Fetching available items...");
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, quantity, category_id")
+        .select("id, name, quantity, category_id, profit_per_unit, unit_type")
         .eq("is_archived", false)
         .gt("quantity", 0)
         .order("name");
@@ -107,6 +114,8 @@ export default function SellProductsDrawer({
       return (data || []).map((item) => ({
         ...item,
         quantity: item.quantity ?? 0,
+        profit_per_unit: Number(item.profit_per_unit) || 0,
+        unit_type: item.unit_type || "قطعة",
       })) as InventoryItem[];
     },
     enabled: !!user && open,
@@ -127,7 +136,7 @@ export default function SellProductsDrawer({
       if (quantity <= 0) throw new Error("الكمية يجب أن تكون أكبر من صفر");
       if (quantity > item.quantity) throw new Error("الكمية المطلوبة أكبر من المتاح");
 
-      await sellProduct(user.id, itemId, item.quantity, quantity);
+      await sellProduct(user.id, itemId, item.quantity, quantity, item.profit_per_unit);
     },
     onSuccess: (_, { itemId }) => {
       // Invalidate all related queries to update UI
@@ -207,6 +216,7 @@ export default function SellProductsDrawer({
                 const isProcessing =
                   sellItemMutation.isPending &&
                   sellItemMutation.variables?.itemId === item.id;
+                const expectedProfit = sellQty * item.profit_per_unit;
 
                 return (
                   <div
@@ -218,12 +228,19 @@ export default function SellProductsDrawer({
                         <h3 className="font-semibold text-foreground">
                           {item.name}
                         </h3>
-                        <p className="text-sm text-muted-foreground">
-                          المتبقي:{" "}
-                          <span className="text-primary font-medium">
-                            {item.quantity}
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                          <span>
+                            المتبقي:{" "}
+                            <span className="text-primary font-medium">
+                              {item.quantity} {item.unit_type}
+                            </span>
                           </span>
-                        </p>
+                          {item.profit_per_unit > 0 && (
+                            <span className="text-income">
+                              ربح ال{item.unit_type}: {item.profit_per_unit} جنيه
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -289,6 +306,15 @@ export default function SellProductsDrawer({
                         تم البيع
                       </Button>
                     </div>
+
+                    {/* Profit Preview */}
+                    {sellQty > 0 && item.profit_per_unit > 0 && (
+                      <div className="bg-income/10 rounded-lg p-2 text-center">
+                        <span className="text-income font-bold">
+                          الربح المتوقع: +{expectedProfit.toLocaleString()} جنيه
+                        </span>
+                      </div>
+                    )}
                   </div>
                 );
               })}

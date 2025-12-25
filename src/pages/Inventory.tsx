@@ -34,6 +34,8 @@ export default function Inventory() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newItemName, setNewItemName] = useState("");
   const [newItemQuantity, setNewItemQuantity] = useState("");
+  const [newItemProfitPerUnit, setNewItemProfitPerUnit] = useState("");
+  const [newItemUnitType, setNewItemUnitType] = useState("قطعة");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
 
   // Fetch categories
@@ -92,6 +94,8 @@ export default function Inventory() {
           category_id: selectedCategoryId || null,
           name: newItemName,
           quantity: parseInt(newItemQuantity) || 0,
+          profit_per_unit: parseFloat(newItemProfitPerUnit) || 0,
+          unit_type: newItemUnitType,
         })
         .select()
         .single();
@@ -105,6 +109,7 @@ export default function Inventory() {
           item_id: item.id,
           quantity_change: parseInt(newItemQuantity),
           action: "add",
+          profit: 0,
         });
       }
     },
@@ -114,6 +119,8 @@ export default function Inventory() {
       toast({ title: "تم إضافة الصنف" });
       setNewItemName("");
       setNewItemQuantity("");
+      setNewItemProfitPerUnit("");
+      setNewItemUnitType("قطعة");
       setSelectedCategoryId("");
       setItemDialogOpen(false);
     },
@@ -210,15 +217,47 @@ export default function Inventory() {
                       onChange={(e) => setNewItemName(e.target.value)}
                     />
                   </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>الكمية</Label>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={newItemQuantity}
+                        onChange={(e) => setNewItemQuantity(e.target.value)}
+                        dir="ltr"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>نوع الوحدة</Label>
+                      <Select
+                        value={newItemUnitType}
+                        onValueChange={setNewItemUnitType}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="قطعة">قطعة</SelectItem>
+                          <SelectItem value="كيلو">كيلو</SelectItem>
+                          <SelectItem value="متر">متر</SelectItem>
+                          <SelectItem value="لتر">لتر</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                   <div className="space-y-2">
-                    <Label>الكمية</Label>
+                    <Label>ربح الوحدة (جنيه)</Label>
                     <Input
                       type="number"
                       placeholder="0"
-                      value={newItemQuantity}
-                      onChange={(e) => setNewItemQuantity(e.target.value)}
+                      value={newItemProfitPerUnit}
+                      onChange={(e) => setNewItemProfitPerUnit(e.target.value)}
                       dir="ltr"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      الربح لكل {newItemUnitType} عند البيع
+                    </p>
                   </div>
                   <Button
                     onClick={() => addItem.mutate()}
@@ -243,19 +282,34 @@ export default function Inventory() {
                   {categoryName}
                 </h3>
                 <div className="notebook-paper divide-y divide-border">
-                  {categoryItems?.map((item) => (
-                    <div key={item.id} className="record-item">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Package className="h-5 w-5 text-accent" />
-                          <span className="font-medium">{item.name}</span>
-                        </div>
-                        <div className="text-lg font-bold text-primary">
-                          {item.quantity ?? 0}
+                  {categoryItems?.map((item) => {
+                    const unitType = (item as any).unit_type || "قطعة";
+                    const profitPerUnit = Number((item as any).profit_per_unit) || 0;
+                    
+                    return (
+                      <div key={item.id} className="record-item">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Package className="h-5 w-5 text-accent" />
+                            <div>
+                              <span className="font-medium">{item.name}</span>
+                              {profitPerUnit > 0 && (
+                                <p className="text-xs text-income">
+                                  ربح ال{unitType}: {profitPerUnit} جنيه
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-left">
+                            <div className="text-lg font-bold text-primary">
+                              {item.quantity ?? 0}
+                            </div>
+                            <p className="text-xs text-muted-foreground">{unitType}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}

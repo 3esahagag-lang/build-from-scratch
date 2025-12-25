@@ -25,13 +25,13 @@ export default function ProductsRecords() {
     enabled: !!user,
   });
 
-  // Fetch inventory logs
+  // Fetch inventory logs with profit
   const { data: logs } = useQuery({
     queryKey: ["inventory-logs-records", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("inventory_logs")
-        .select("*, inventory_items(name)")
+        .select("*, inventory_items(name, unit_type, profit_per_unit)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -64,6 +64,15 @@ export default function ProductsRecords() {
       logs
         ?.filter((l) => l.item_id === itemId && l.action === "add")
         .reduce((sum, l) => sum + l.quantity_change, 0) || 0
+    );
+  };
+
+  // Calculate total profit for each product
+  const getTotalProfit = (itemId: string) => {
+    return (
+      logs
+        ?.filter((l) => l.item_id === itemId && l.action === "sell")
+        .reduce((sum, l) => sum + Number(l.profit || 0), 0) || 0
     );
   };
 
@@ -110,7 +119,7 @@ export default function ProductsRecords() {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="grid grid-cols-3 gap-3 mb-4">
               <div className="notebook-paper p-3 text-center">
                 <p className="text-2xl font-bold text-income">
                   +{getAddedQuantity(selectedProduct)}
@@ -123,6 +132,12 @@ export default function ProductsRecords() {
                 </p>
                 <p className="text-sm text-muted-foreground">تم بيعها</p>
               </div>
+              <div className="notebook-paper p-3 text-center">
+                <p className="text-2xl font-bold text-income">
+                  +{getTotalProfit(selectedProduct).toLocaleString()}
+                </p>
+                <p className="text-sm text-muted-foreground">إجمالي الربح</p>
+              </div>
             </div>
 
             <h3 className="font-bold mb-3 flex items-center gap-2">
@@ -130,42 +145,64 @@ export default function ProductsRecords() {
               سجل الحركات
             </h3>
             <div className="space-y-2">
-              {selectedProductLogs?.map((log) => (
-                <div
-                  key={log.id}
-                  className="notebook-paper p-3 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`p-2 rounded-lg ${
-                        log.action === "add" ? "bg-income/10" : "bg-expense/10"
-                      }`}
-                    >
-                      {log.action === "add" ? (
-                        <Plus className="h-4 w-4 text-income" />
-                      ) : (
-                        <Minus className="h-4 w-4 text-expense" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">
-                        {log.action === "add" ? "إضافة" : "بيع"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(log.created_at!)}
-                      </p>
-                    </div>
-                  </div>
-                  <span
-                    className={`font-bold ${
-                      log.action === "add" ? "text-income" : "text-expense"
-                    }`}
+              {selectedProductLogs?.map((log) => {
+                const unitType = log.inventory_items?.unit_type || "قطعة";
+                const profit = Number(log.profit || 0);
+                
+                return (
+                  <div
+                    key={log.id}
+                    className="notebook-paper p-3"
                   >
-                    {log.action === "add" ? "+" : "-"}
-                    {Math.abs(log.quantity_change)}
-                  </span>
-                </div>
-              ))}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`p-2 rounded-lg ${
+                            log.action === "add" ? "bg-income/10" : "bg-expense/10"
+                          }`}
+                        >
+                          {log.action === "add" ? (
+                            <Plus className="h-4 w-4 text-income" />
+                          ) : (
+                            <Minus className="h-4 w-4 text-expense" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">
+                            {log.action === "add" ? "إضافة" : "بيع"} {Math.abs(log.quantity_change)} {unitType}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDate(log.created_at!)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-left">
+                        <span
+                          className={`font-bold ${
+                            log.action === "add" ? "text-income" : "text-expense"
+                          }`}
+                        >
+                          {log.action === "add" ? "+" : "-"}
+                          {Math.abs(log.quantity_change)}
+                        </span>
+                        {log.action === "sell" && profit > 0 && (
+                          <p className="text-xs text-income font-medium">
+                            ربح: +{profit.toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {log.action === "sell" && profit > 0 && (
+                      <div className="mt-2 pt-2 border-t border-border/50 text-sm">
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>الكمية: {Math.abs(log.quantity_change)} {unitType}</span>
+                          <span className="text-income font-medium">إجمالي الربح: +{profit.toLocaleString()} جنيه</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               {selectedProductLogs?.length === 0 && (
                 <p className="text-center text-muted-foreground py-8">
                   لا توجد حركات
@@ -186,6 +223,7 @@ export default function ProductsRecords() {
               items?.map((item) => {
                 const sold = getSoldQuantity(item.id);
                 const added = getAddedQuantity(item.id);
+                const profit = getTotalProfit(item.id);
 
                 return (
                   <button
@@ -215,6 +253,9 @@ export default function ProductsRecords() {
                     <div className="flex gap-4 mt-3 text-sm">
                       <span className="text-income">+{added} إضافة</span>
                       <span className="text-expense">-{sold} بيع</span>
+                      {profit > 0 && (
+                        <span className="text-income font-medium">ربح: +{profit.toLocaleString()}</span>
+                      )}
                     </div>
                   </button>
                 );
