@@ -10,9 +10,11 @@ import {
   Wallet
 } from "lucide-react";
 import SellProductsDrawer from "@/components/SellProductsDrawer";
+import PayDebtsDrawer from "@/components/PayDebtsDrawer";
 
 export default function Dashboard() {
   const [sellDrawerOpen, setSellDrawerOpen] = useState(false);
+  const [payDebtsDrawerOpen, setPayDebtsDrawerOpen] = useState(false);
 
   return (
     <Layout>
@@ -38,14 +40,13 @@ export default function Dashboard() {
             </Button>
             
             {/* Pay Debts Action */}
-            <Link to="/debts">
-              <Button
-                className="w-full h-24 text-xl font-bold bg-gradient-to-l from-warning to-warning/80 hover:from-warning/90 hover:to-warning/70 text-warning-foreground shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl"
-              >
-                <Wallet className="h-8 w-8 ml-4" />
-                سدّد سلفتك
-              </Button>
-            </Link>
+            <Button
+              onClick={() => setPayDebtsDrawerOpen(true)}
+              className="w-full h-24 text-xl font-bold bg-gradient-to-l from-warning to-warning/80 hover:from-warning/90 hover:to-warning/70 text-warning-foreground shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl"
+            >
+              <Wallet className="h-8 w-8 ml-4" />
+              سدّد سلفتك
+            </Button>
           </div>
         </div>
 
@@ -89,6 +90,9 @@ export default function Dashboard() {
 
       {/* Sell Products Drawer */}
       <SellProductsDrawer open={sellDrawerOpen} onOpenChange={setSellDrawerOpen} />
+      
+      {/* Pay Debts Drawer */}
+      <PayDebtsDrawer open={payDebtsDrawerOpen} onOpenChange={setPayDebtsDrawerOpen} />
     </Layout>
   );
 }
