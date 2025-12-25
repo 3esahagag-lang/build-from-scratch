@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -9,14 +9,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { 
-  TrendingUp, 
-  TrendingDown, 
   Plus,
   Phone,
   ChevronDown,
   ChevronUp,
-  AlertTriangle,
-  Loader2
+  Loader2,
+  ArrowLeftRight,
+  TrendingUp,
+  Hash
 } from "lucide-react";
 import {
   Dialog,
@@ -25,8 +25,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Card, CardContent } from "@/components/ui/card";
 import FixedNumberCard from "@/components/FixedNumberCard";
-import { LimitWarning, OperationFeedback, NetworkStatus } from "@/components/OperationFeedback";
+import { NetworkStatus } from "@/components/OperationFeedback";
 import { useNetworkStatus, usePreventDoubleSubmit } from "@/hooks/useOperationState";
 
 export default function Transfers() {
@@ -36,17 +37,18 @@ export default function Transfers() {
   const isOnline = useNetworkStatus();
   const { isSubmitting, wrapSubmit } = usePreventDoubleSubmit();
   
-  const [type, setType] = useState<"income" | "expense">("income");
+  // Form state for regular transfers
   const [amount, setAmount] = useState("");
   const [profit, setProfit] = useState("");
   const [notes, setNotes] = useState("");
-  const [fixedNumberId, setFixedNumberId] = useState<string>("");
+  
+  // Phone numbers state
   const [newPhoneNumber, setNewPhoneNumber] = useState("");
   const [newFixedName, setNewFixedName] = useState("");
   const [newFixedLimit, setNewFixedLimit] = useState("");
   const [fixedNumberDialogOpen, setFixedNumberDialogOpen] = useState(false);
   const [showAllNumbers, setShowAllNumbers] = useState(false);
-  const [limitWarningDismissed, setLimitWarningDismissed] = useState(false);
+  const [expandedNumberId, setExpandedNumberId] = useState<string | null>(null);
 
   // Fetch fixed numbers
   const { data: fixedNumbers } = useQuery({
@@ -64,7 +66,7 @@ export default function Transfers() {
     enabled: !!user,
   });
 
-  // Fetch monthly usage for fixed numbers from fixed_number_transfers table
+  // Fetch monthly usage for fixed numbers
   const { data: monthlyUsage } = useQuery({
     queryKey: ["fixed-number-monthly-usage", user?.id],
     queryFn: async () => {
@@ -90,14 +92,53 @@ export default function Transfers() {
     enabled: !!user,
   });
 
-  // Add transfer mutation (for regular transfers)
+  // Fetch transfer summary (count, total amount, total profit)
+  const { data: transferSummary } = useQuery({
+    queryKey: ["transfers-summary", user?.id],
+    queryFn: async () => {
+      // Get all transfers for this user
+      const { data: transfers, error: transfersError } = await supabase
+        .from("transfers")
+        .select("amount, profit, type")
+        .eq("is_archived", false);
+      
+      if (transfersError) throw transfersError;
+
+      // Get fixed number transfers  
+      const { data: fixedTransfers, error: fixedError } = await supabase
+        .from("fixed_number_transfers")
+        .select("amount");
+      
+      if (fixedError) throw fixedError;
+
+      // Calculate totals
+      const totalCount = (transfers?.length || 0) + (fixedTransfers?.length || 0);
+      const totalIncome = transfers?.reduce((sum, t) => {
+        return sum + (t.type === "income" ? Number(t.amount) : 0);
+      }, 0) || 0;
+      
+      // Add fixed number transfers to income (they're always income)
+      const fixedTotal = fixedTransfers?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+      
+      const totalProfit = transfers?.reduce((sum, t) => sum + (Number(t.profit) || 0), 0) || 0;
+
+      return {
+        count: totalCount,
+        totalIncome: totalIncome + fixedTotal,
+        totalProfit,
+      };
+    },
+    enabled: !!user,
+  });
+
+  // Add regular transfer mutation
   const addTransfer = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("transfers").insert({
         user_id: user!.id,
         amount: parseFloat(amount),
         profit: parseFloat(profit) || 0,
-        type,
+        type: "income", // Always income now
         notes: notes || null,
         fixed_number_id: null,
       });
@@ -105,6 +146,7 @@ export default function Transfers() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transfers"] });
+      queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
       queryClient.invalidateQueries({ queryKey: ["today-stats"] });
       toast({ title: "تم تسجيل التحويل بنجاح" });
       setAmount("");
@@ -116,28 +158,34 @@ export default function Transfers() {
     },
   });
 
-  // Add fixed number transfer mutation (separate table with limit enforcement)
+  // Add fixed number transfer mutation
   const addFixedNumberTransfer = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ 
+      fixedNumberId, 
+      transferAmount, 
+      transferNotes 
+    }: { 
+      fixedNumberId: string; 
+      transferAmount: number; 
+      transferNotes?: string;
+    }) => {
       const { error } = await supabase.from("fixed_number_transfers").insert({
         user_id: user!.id,
         fixed_number_id: fixedNumberId,
-        amount: parseFloat(amount),
-        notes: notes || null,
+        amount: transferAmount,
+        notes: transferNotes || null,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage"] });
       queryClient.invalidateQueries({ queryKey: ["transfers"] });
+      queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
       queryClient.invalidateQueries({ queryKey: ["today-stats"] });
-      toast({ title: "تم تسجيل التحويل على الرقم الثابت بنجاح" });
-      setAmount("");
-      setNotes("");
-      setFixedNumberId("");
+      toast({ title: "تم تسجيل التحويل على الرقم بنجاح" });
+      setExpandedNumberId(null);
     },
     onError: (error: Error) => {
-      // Parse the error message for limit exceeded
       const errorMessage = error.message || "";
       if (errorMessage.includes("LIMIT_EXCEEDED")) {
         const arabicMessage = errorMessage.split("LIMIT_EXCEEDED:")[1] || "تم تجاوز الحد الشهري للتحويلات";
@@ -206,15 +254,14 @@ export default function Transfers() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fixed-numbers"] });
       toast({ title: "تم تعطيل الرقم" });
-      // Clear selection if the disabled number was selected
-      setFixedNumberId("");
+      setExpandedNumberId(null);
     },
     onError: () => {
       toast({ title: "حدث خطأ", variant: "destructive" });
     },
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmitRegularTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!isOnline) {
@@ -231,58 +278,44 @@ export default function Transfers() {
       return;
     }
     
-    // Check if a fixed number is selected - use separate table
-    if (fixedNumberId) {
-      // Client-side limit check for better UX
-      const selectedNumber = fixedNumbers?.find(fn => fn.id === fixedNumberId);
-      const currentUsage = monthlyUsage?.[fixedNumberId] || 0;
-      const limit = Number(selectedNumber?.monthly_limit) || 0;
-      const newAmount = parseFloat(amount);
-      
-      if (limit > 0 && (currentUsage + newAmount) > limit) {
-        const remaining = Math.max(0, limit - currentUsage);
-        toast({ 
-          title: "تجاوز الحد الشهري",
-          description: `الحد: ${limit.toLocaleString()} | المستخدم: ${currentUsage.toLocaleString()} | المتبقي: ${remaining.toLocaleString()}`,
-          variant: "destructive" 
-        });
-        return;
-      }
-      
-      await wrapSubmit(() => addFixedNumberTransfer.mutateAsync());
-    } else {
-      await wrapSubmit(() => addTransfer.mutateAsync());
+    await wrapSubmit(() => addTransfer.mutateAsync());
+  };
+
+  const handleSubmitFixedNumberTransfer = async (
+    fixedNumberId: string, 
+    data: { amount: number; profit?: number; notes?: string }
+  ) => {
+    if (!isOnline) {
+      toast({ 
+        title: "لا يوجد اتصال بالإنترنت", 
+        variant: "destructive" 
+      });
+      return;
     }
-  };
 
-  // Check if current selection would exceed limit
-  const getSelectedNumberLimitStatus = () => {
-    if (!fixedNumberId) return null;
-    
+    // Check limit
     const selectedNumber = fixedNumbers?.find(fn => fn.id === fixedNumberId);
-    if (!selectedNumber) return null;
-    
-    const limit = Number(selectedNumber.monthly_limit) || 0;
-    if (limit <= 0) return null;
-    
     const currentUsage = monthlyUsage?.[fixedNumberId] || 0;
-    const newAmount = parseFloat(amount) || 0;
-    const wouldExceed = (currentUsage + newAmount) > limit;
-    const remaining = Math.max(0, limit - currentUsage);
+    const limit = Number(selectedNumber?.monthly_limit) || 0;
     
-    return {
-      limit,
-      used: currentUsage,
-      remaining,
-      wouldExceed,
-      newTotal: currentUsage + newAmount,
-    };
+    if (limit > 0 && (currentUsage + data.amount) > limit) {
+      const remaining = Math.max(0, limit - currentUsage);
+      toast({ 
+        title: "تجاوز الحد الشهري",
+        description: `الحد: ${limit.toLocaleString()} | المستخدم: ${currentUsage.toLocaleString()} | المتبقي: ${remaining.toLocaleString()}`,
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    await wrapSubmit(() => addFixedNumberTransfer.mutateAsync({
+      fixedNumberId,
+      transferAmount: data.amount,
+      transferNotes: data.notes,
+    }));
   };
-
-  const limitStatus = getSelectedNumberLimitStatus();
 
   const validatePhoneNumber = (value: string) => {
-    // Only allow digits and max 11 characters
     const cleaned = value.replace(/\D/g, "").slice(0, 11);
     setNewPhoneNumber(cleaned);
   };
@@ -295,34 +328,197 @@ export default function Transfers() {
       <NetworkStatus isOnline={isOnline} />
       
       <div className="space-y-6 pb-20 md:pb-0">
+        {/* Header */}
         <div className="animate-slide-up">
-          <h1 className="text-2xl font-bold text-foreground">التحويلات</h1>
-          <p className="text-muted-foreground">سجّل حركة الفلوس</p>
+          <h1 className="text-2xl font-bold text-foreground">سجل تحويلك</h1>
+          <p className="text-muted-foreground">سجّل تحويلاتك وتابع حساباتك</p>
         </div>
 
-        {/* Type Toggle */}
-        <div className="flex gap-2 animate-slide-up" style={{ animationDelay: "50ms" }}>
-          <Button
-            variant={type === "income" ? "default" : "outline"}
-            className={`flex-1 gap-2 ${type === "income" ? "bg-income hover:bg-income/90" : ""}`}
-            onClick={() => setType("income")}
-          >
-            <TrendingUp className="h-5 w-5" />
-            فلوس دخلت
-          </Button>
-          <Button
-            variant={type === "expense" ? "default" : "outline"}
-            className={`flex-1 gap-2 ${type === "expense" ? "bg-expense hover:bg-expense/90" : ""}`}
-            onClick={() => setType("expense")}
-          >
-            <TrendingDown className="h-5 w-5" />
-            فلوس خرجت
-          </Button>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-3 gap-3 animate-slide-up" style={{ animationDelay: "25ms" }}>
+          {/* Total Transfers Count */}
+          <Card className="bg-card border-border">
+            <CardContent className="p-3 text-center">
+              <div className="flex items-center justify-center mb-1">
+                <Hash className="h-4 w-4 text-primary" />
+              </div>
+              <p className="text-2xl font-bold text-foreground">
+                {transferSummary?.count || 0}
+              </p>
+              <p className="text-xs text-muted-foreground">إجمالي التحويلات</p>
+            </CardContent>
+          </Card>
+
+          {/* Total Income/Amount */}
+          <Card className="bg-card border-border">
+            <CardContent className="p-3 text-center">
+              <div className="flex items-center justify-center mb-1">
+                <ArrowLeftRight className="h-4 w-4 text-income" />
+              </div>
+              <p className="text-2xl font-bold text-income">
+                {(transferSummary?.totalIncome || 0).toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">إجمالي المبلغ</p>
+            </CardContent>
+          </Card>
+
+          {/* Total Profit */}
+          <Card className="bg-card border-border">
+            <CardContent className="p-3 text-center">
+              <div className="flex items-center justify-center mb-1">
+                <TrendingUp className="h-4 w-4 text-income" />
+              </div>
+              <p className="text-2xl font-bold text-income">
+                {(transferSummary?.totalProfit || 0).toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">إجمالي الربح</p>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
+        {/* Fixed Numbers Section */}
+        <div className="space-y-3 animate-slide-up" style={{ animationDelay: "50ms" }}>
+          <div className="flex items-center justify-between">
+            <h2 className="section-title flex items-center gap-2">
+              <Phone className="h-4 w-4" />
+              أرقام الهواتف الثابتة
+            </h2>
+            <Dialog open={fixedNumberDialogOpen} onOpenChange={setFixedNumberDialogOpen}>
+              <DialogTrigger asChild>
+                <Button type="button" variant="outline" size="sm" className="gap-1">
+                  <Plus className="h-4 w-4" />
+                  إضافة رقم
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>إضافة رقم هاتف ثابت</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>رقم الهاتف (11 رقم)</Label>
+                    <Input
+                      type="tel"
+                      placeholder="01xxxxxxxxx"
+                      value={newPhoneNumber}
+                      onChange={(e) => validatePhoneNumber(e.target.value)}
+                      className="text-center font-mono text-lg"
+                      dir="ltr"
+                      maxLength={11}
+                    />
+                    <p className="text-xs text-muted-foreground text-center">
+                      {newPhoneNumber.length}/11 رقم
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>اسم مميز (اختياري)</Label>
+                    <Input
+                      placeholder="مثال: محمد أحمد"
+                      value={newFixedName}
+                      onChange={(e) => setNewFixedName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>الحد الشهري للتحويلات</Label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={newFixedLimit}
+                      onChange={(e) => setNewFixedLimit(e.target.value)}
+                      dir="ltr"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      يتجدد تلقائياً في بداية كل شهر
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => addFixedNumber.mutate()}
+                    disabled={!isValidPhone || addFixedNumber.isPending}
+                    className="w-full"
+                  >
+                    {addFixedNumber.isPending ? "جاري الإضافة..." : "إضافة الرقم"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {/* Fixed Numbers List */}
+          {fixedNumbers && fixedNumbers.length > 0 ? (
+            <div className="space-y-3">
+              {displayedNumbers?.map((fn) => {
+                const used = monthlyUsage?.[fn.id] || 0;
+                const limit = Number(fn.monthly_limit);
+                const isDisabled = fn.is_disabled ?? false;
+                
+                return (
+                  <FixedNumberCard
+                    key={fn.id}
+                    id={fn.id}
+                    phoneNumber={fn.phone_number || fn.name}
+                    name={fn.phone_number ? fn.name : ""}
+                    used={used}
+                    limit={limit}
+                    isDisabled={isDisabled}
+                    isExpanded={expandedNumberId === fn.id}
+                    isSubmitting={addFixedNumberTransfer.isPending}
+                    onToggleExpand={(id) => setExpandedNumberId(id)}
+                    onSubmitTransfer={handleSubmitFixedNumberTransfer}
+                    onUpdate={(id, data) => updateFixedNumber.mutate({ id, data })}
+                    onDisable={(id) => disableFixedNumber.mutate(id)}
+                  />
+                );
+              })}
+              
+              {fixedNumbers.length > 3 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setShowAllNumbers(!showAllNumbers)}
+                >
+                  {showAllNumbers ? (
+                    <>
+                      <ChevronUp className="h-4 w-4 ml-1" />
+                      عرض أقل
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-4 w-4 ml-1" />
+                      عرض الكل ({fixedNumbers.length})
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-6 text-muted-foreground text-sm notebook-paper rounded-xl">
+              <Phone className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+              <p>لا توجد أرقام مسجلة</p>
+              <p className="text-xs mt-1">أضف رقماً لتسجيل التحويلات عليه</p>
+            </div>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="relative py-4">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-border"></div>
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-3 text-muted-foreground">أو سجّل تحويل عادي</span>
+          </div>
+        </div>
+
+        {/* Regular Transfer Form */}
+        <form onSubmit={handleSubmitRegularTransfer} className="space-y-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
           <div className="notebook-paper p-4 space-y-4">
+            <h3 className="font-bold text-foreground flex items-center gap-2">
+              <ArrowLeftRight className="h-4 w-4 text-primary" />
+              تحويل بدون رقم ثابت
+            </h3>
+            
             <div className="space-y-2">
               <Label>المبلغ</Label>
               <Input
@@ -364,176 +560,28 @@ export default function Transfers() {
                 rows={2}
               />
             </div>
-
-            {/* Fixed Numbers Section */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  أرقام الهواتف الثابتة
-                </Label>
-                <Dialog open={fixedNumberDialogOpen} onOpenChange={setFixedNumberDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button type="button" variant="outline" size="sm" className="gap-1">
-                      <Plus className="h-4 w-4" />
-                      إضافة رقم
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>إضافة رقم هاتف ثابت</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>رقم الهاتف (11 رقم)</Label>
-                        <Input
-                          type="tel"
-                          placeholder="01xxxxxxxxx"
-                          value={newPhoneNumber}
-                          onChange={(e) => validatePhoneNumber(e.target.value)}
-                          className="text-center font-mono text-lg"
-                          dir="ltr"
-                          maxLength={11}
-                        />
-                        <p className="text-xs text-muted-foreground text-center">
-                          {newPhoneNumber.length}/11 رقم
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>اسم مميز (اختياري)</Label>
-                        <Input
-                          placeholder="مثال: محمد أحمد"
-                          value={newFixedName}
-                          onChange={(e) => setNewFixedName(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>الحد الشهري للتحويلات</Label>
-                        <Input
-                          type="number"
-                          placeholder="0"
-                          value={newFixedLimit}
-                          onChange={(e) => setNewFixedLimit(e.target.value)}
-                          dir="ltr"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          يتجدد تلقائياً في بداية كل شهر
-                        </p>
-                      </div>
-                      <Button
-                        onClick={() => addFixedNumber.mutate()}
-                        disabled={!isValidPhone || addFixedNumber.isPending}
-                        className="w-full"
-                      >
-                        {addFixedNumber.isPending ? "جاري الإضافة..." : "إضافة الرقم"}
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-
-              {/* Fixed Numbers List */}
-              {fixedNumbers && fixedNumbers.length > 0 ? (
-                <div className="space-y-2">
-                  {displayedNumbers?.map((fn) => {
-                    const used = monthlyUsage?.[fn.id] || 0;
-                    const limit = Number(fn.monthly_limit);
-                    const isDisabled = fn.is_disabled ?? false;
-                    
-                    return (
-                      <FixedNumberCard
-                        key={fn.id}
-                        id={fn.id}
-                        phoneNumber={fn.phone_number || fn.name}
-                        name={fn.phone_number ? fn.name : ""}
-                        used={used}
-                        limit={limit}
-                        isDisabled={isDisabled}
-                        isSelected={fixedNumberId === fn.id}
-                        onSelect={() => {
-                          if (!isDisabled) {
-                            setFixedNumberId(fixedNumberId === fn.id ? "" : fn.id);
-                          }
-                        }}
-                        onUpdate={(id, data) => updateFixedNumber.mutate({ id, data })}
-                        onDisable={(id) => disableFixedNumber.mutate(id)}
-                      />
-                    );
-                  })}
-                  
-                  {fixedNumbers.length > 3 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => setShowAllNumbers(!showAllNumbers)}
-                    >
-                      {showAllNumbers ? (
-                        <>
-                          <ChevronUp className="h-4 w-4 ml-1" />
-                          عرض أقل
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="h-4 w-4 ml-1" />
-                          عرض الكل ({fixedNumbers.length})
-                        </>
-                      )}
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-4 text-muted-foreground text-sm">
-                  لا توجد أرقام مسجلة، أضف رقماً جديداً
-                </div>
-              )}
-
-              {/* Limit Warning when fixed number selected */}
-              {fixedNumberId && limitStatus && (
-                <div className="space-y-3 pt-2 border-t border-border">
-                  <LimitWarning
-                    used={limitStatus.used}
-                    limit={limitStatus.limit}
-                    showRemaining={true}
-                  />
-                  
-                  {limitStatus.wouldExceed && parseFloat(amount) > 0 && (
-                    <OperationFeedback
-                      status="error"
-                      message="هذا المبلغ سيتجاوز الحد الشهري"
-                      details={`المتبقي: ${limitStatus.remaining.toLocaleString()} جنيه فقط`}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
           </div>
 
           <Button
             type="submit"
             disabled={
               addTransfer.isPending || 
-              addFixedNumberTransfer.isPending || 
               isSubmitting ||
               !isOnline ||
-              (fixedNumberId && limitStatus?.wouldExceed && parseFloat(amount) > 0)
+              !amount ||
+              parseFloat(amount) <= 0
             }
-            className={`w-full h-14 text-lg action-button ${
-              type === "income" ? "bg-income hover:bg-income/90" : "bg-expense hover:bg-expense/90"
-            }`}
+            className="w-full h-14 text-lg action-button bg-income hover:bg-income/90"
           >
-            {(addTransfer.isPending || addFixedNumberTransfer.isPending || isSubmitting) ? (
+            {(addTransfer.isPending || isSubmitting) ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin ml-2" />
                 جاري الحفظ...
               </>
             ) : !isOnline ? (
               "لا يوجد اتصال"
-            ) : (fixedNumberId && limitStatus?.wouldExceed && parseFloat(amount) > 0) ? (
-              "تجاوز الحد الشهري"
             ) : (
-              "تسجيل"
+              "تسجيل التحويل"
             )}
           </Button>
         </form>
