@@ -182,10 +182,15 @@ export default function Records() {
         </div>
 
         {/* Developer Credit */}
-        <div className="pt-12 pb-4">
+        <div className="pt-12 pb-4 space-y-3">
           <p className="text-center text-xs text-muted-foreground/60">
-            تم تطويره محلي بواسطة <span className="font-medium text-muted-foreground">عيسى</span>
+            تم تطوير محلي بواسطة
           </p>
+          <div className="flex justify-center">
+            <div className="px-5 py-2 rounded-full bg-primary/10 border border-primary/20 shadow-[0_0_15px_rgba(var(--primary),0.15)]">
+              <span className="text-lg font-bold text-primary">عيسي</span>
+            </div>
+          </div>
         </div>
       </div>
     </Layout>
