@@ -1,6 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
 
 @tailwind base;
+
+/* Success color for financial positive values */
+:root {
+  --success: 142 76% 36%;
+  --success-foreground: 0 0% 100%;
+}
+
+.dark {
+  --success: 142 71% 45%;
+  --success-foreground: 0 0% 100%;
+}
 @tailwind components;
 @tailwind utilities;
 
