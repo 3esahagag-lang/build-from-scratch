@@ -56,11 +56,11 @@ async function sellProduct(
     throw new Error(`فشل تحديث الكمية: ${updateError.message}`);
   }
 
-  // Step 2: Create sale log record
+  // Step 2: Create sale log record (action must be 'sell' per DB constraint)
   const { error: logError } = await supabase.from("inventory_logs").insert({
     item_id: itemId,
     user_id: userId,
-    action: "sale",
+    action: "sell",
     quantity_change: -sellQuantity,
   });
 
