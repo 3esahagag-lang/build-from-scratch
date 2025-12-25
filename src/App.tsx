@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { useFinancialSecurity } from "@/hooks/useSecurityEvents";
 import BottomNavigation from "@/components/BottomNavigation";
 
 import Auth from "./pages/Auth";
@@ -21,6 +22,12 @@ import SellProducts from "./pages/SellProducts";
 import SettleDebts from "./pages/SettleDebts";
 import FixedNumberDetails from "./pages/FixedNumberDetails";
 import NotFound from "./pages/NotFound";
+
+// Financial security wrapper - applies all security measures
+function SecurityProvider({ children }: { children: React.ReactNode }) {
+  useFinancialSecurity();
+  return <>{children}</>;
+}
 
 const queryClient = new QueryClient();
 
@@ -199,18 +206,20 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          {/* Global safe padding so content never sits under bottom nav */}
-          <div
-            className="min-h-screen pb-24"
-            style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom, 0px))" }}
-          >
-            <AppRoutes />
-          </div>
-          <BottomNavigation />
-        </BrowserRouter>
+        <SecurityProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            {/* Global safe padding so content never sits under bottom nav */}
+            <div
+              className="min-h-screen pb-24"
+              style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom, 0px))" }}
+            >
+              <AppRoutes />
+            </div>
+            <BottomNavigation />
+          </BrowserRouter>
+        </SecurityProvider>
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
