@@ -56,7 +56,7 @@ export default function FixedNumberDetails() {
     enabled: !!user && !!id,
   });
 
-  // Fetch transfers for this fixed number
+  // Fetch transfers for this fixed number (this number's exclusive data)
   const { data: transfers, isLoading: transfersLoading } = useQuery({
     queryKey: ["fixed-number-transfers", id],
     queryFn: async () => {
@@ -67,6 +67,32 @@ export default function FixedNumberDetails() {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
+    },
+    enabled: !!user && !!id,
+  });
+
+  // Fetch limit history (monthly breakdown for this number only)
+  const { data: limitHistory } = useQuery({
+    queryKey: ["fixed-number-limit-history", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fixed_number_transfers")
+        .select("amount, created_at")
+        .eq("fixed_number_id", id!)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Group by month
+      const monthlyData: Record<string, number> = {};
+      data?.forEach((t) => {
+        const month = new Date(t.created_at).toISOString().slice(0, 7);
+        monthlyData[month] = (monthlyData[month] || 0) + Number(t.amount);
+      });
+
+      return Object.entries(monthlyData)
+        .map(([month, total]) => ({ month, total }))
+        .slice(0, 6); // Last 6 months
     },
     enabled: !!user && !!id,
   });
@@ -317,12 +343,55 @@ export default function FixedNumberDetails() {
           </div>
         </div>
 
-        {/* Linked Transfers - Single Source of Truth */}
+        {/* Limit History - Monthly Usage Over Time */}
+        {limitHistory && limitHistory.length > 0 && (
+          <section className="animate-slide-up" style={{ animationDelay: "125ms" }}>
+            <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-muted-foreground" />
+              سجل الاستخدام الشهري
+            </h2>
+            <div className="space-y-2">
+              {limitHistory.map((item) => {
+                const [year, month] = item.month.split("-");
+                const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString("ar-EG", { 
+                  month: "long", 
+                  year: "numeric" 
+                });
+                const usagePercent = limit > 0 ? Math.min((item.total / limit) * 100, 100) : 0;
+                
+                return (
+                  <div key={item.month} className="notebook-paper p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-muted-foreground">{monthName}</span>
+                      <span className="font-bold">{item.total.toLocaleString("ar-EG")}</span>
+                    </div>
+                    {limit > 0 && (
+                      <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
+                        <div
+                          className={`h-full transition-all duration-300 ${
+                            usagePercent >= 100 
+                              ? "bg-destructive" 
+                              : usagePercent >= 80 
+                                ? "bg-amber-500" 
+                                : "bg-income"
+                          }`}
+                          style={{ width: `${usagePercent}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Linked Transfers - Single Source of Truth (this number's exclusive data) */}
         <section className="animate-slide-up" style={{ animationDelay: "150ms" }}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-bold flex items-center gap-2">
               <ArrowDownUp className="h-5 w-5 text-primary" />
-              التحويلات المرتبطة بهذا الرقم
+              سجل التحويلات
             </h2>
             {transfers && transfers.length > 0 && (
               <span className="text-sm text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
@@ -345,8 +414,8 @@ export default function FixedNumberDetails() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-accent/50">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <div className="p-2 rounded-lg bg-income/10">
+                        <ArrowDownUp className="h-4 w-4 text-income" />
                       </div>
                       <div>
                         {t.notes && (
@@ -358,8 +427,8 @@ export default function FixedNumberDetails() {
                       </div>
                     </div>
                     <div className="text-left">
-                      <span className="font-bold text-lg">
-                        {Number(t.amount).toLocaleString("ar-EG")}
+                      <span className="font-bold text-lg text-income">
+                        +{Number(t.amount).toLocaleString("ar-EG")}
                       </span>
                     </div>
                   </div>
