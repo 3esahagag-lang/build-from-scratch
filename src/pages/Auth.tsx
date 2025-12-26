@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,9 +19,32 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const confirmEmailDescription =
+    "تم إرسال رسالة تأكيد إلى بريدك الإلكتروني. يرجى فتح الإيميل والضغط على رابط التفعيل قبل تسجيل الدخول.";
+  const shownPendingToastRef = useRef(false);
+
+  useEffect(() => {
+    const redirectedFromGuard = Boolean(
+      (location.state as { emailConfirmationRequired?: boolean } | null)?.emailConfirmationRequired
+    );
+    const hasUnconfirmedSession = Boolean(user && !user.email_confirmed_at);
+
+    if ((redirectedFromGuard || hasUnconfirmedSession) && !shownPendingToastRef.current) {
+      shownPendingToastRef.current = true;
+      toast({
+        title: "تأكيد البريد الإلكتروني مطلوب",
+        description: confirmEmailDescription,
+      });
+    }
+
+    if (!redirectedFromGuard && !hasUnconfirmedSession) {
+      shownPendingToastRef.current = false;
+    }
+  }, [location.state, toast, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,9 +73,8 @@ export default function Auth() {
             });
           } else if (error.message.includes("Email not confirmed")) {
             toast({
-              title: "البريد الإلكتروني غير مؤكد",
-              description: "لم يتم تأكيد البريد الإلكتروني بعد. يرجى التحقق من بريدك الوارد.",
-              variant: "destructive",
+              title: "تأكيد البريد الإلكتروني مطلوب",
+              description: confirmEmailDescription,
             });
           } else {
             toast({
@@ -61,6 +84,19 @@ export default function Auth() {
             });
           }
         } else {
+          // Supabase may return a session even when the email isn't confirmed.
+          // We must hard-block navigation until email_confirmed_at is present.
+          const { data } = await supabase.auth.getUser();
+          const confirmedAt = data.user?.email_confirmed_at;
+
+          if (!confirmedAt) {
+            toast({
+              title: "تأكيد البريد الإلكتروني مطلوب",
+              description: confirmEmailDescription,
+            });
+            return;
+          }
+
           navigate("/");
         }
       } else {
@@ -82,7 +118,7 @@ export default function Auth() {
         } else {
           toast({
             title: "تم إرسال رسالة التأكيد",
-            description: "تم إرسال رسالة تأكيد إلى بريدك الإلكتروني. يرجى فتح الإيميل والضغط على رابط التفعيل قبل تسجيل الدخول.",
+            description: confirmEmailDescription,
           });
           // Switch to login mode so user can log in after confirming
           setIsLogin(true);
