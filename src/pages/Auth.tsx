@@ -47,6 +47,12 @@ export default function Auth() {
               description: "البريد الإلكتروني أو كلمة المرور غير صحيحة",
               variant: "destructive",
             });
+          } else if (error.message.includes("Email not confirmed")) {
+            toast({
+              title: "البريد الإلكتروني غير مؤكد",
+              description: "لم يتم تأكيد البريد الإلكتروني بعد. يرجى التحقق من بريدك الوارد.",
+              variant: "destructive",
+            });
           } else {
             toast({
               title: "خطأ",
@@ -75,10 +81,12 @@ export default function Auth() {
           }
         } else {
           toast({
-            title: "تم إنشاء الحساب",
-            description: "مرحباً بك في دفتر المحل!",
+            title: "تم إرسال رسالة التأكيد",
+            description: "تم إرسال رسالة تأكيد إلى بريدك الإلكتروني. يرجى فتح الإيميل والضغط على رابط التفعيل قبل تسجيل الدخول.",
           });
-          navigate("/");
+          // Switch to login mode so user can log in after confirming
+          setIsLogin(true);
+          setPassword("");
         }
       }
     } finally {
