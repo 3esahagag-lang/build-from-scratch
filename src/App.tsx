@@ -50,7 +50,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <LoadingSpinner />;
   }
 
+  // Not logged in at all
   if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  // Logged in but email not confirmed - redirect to auth page
+  if (!user.email_confirmed_at) {
     return <Navigate to="/auth" replace />;
   }
 
@@ -64,7 +70,8 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     return <LoadingSpinner />;
   }
 
-  if (user) {
+  // Only redirect to dashboard if user exists AND email is confirmed
+  if (user && user.email_confirmed_at) {
     return <Navigate to="/" replace />;
   }
 
