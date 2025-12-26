@@ -59,6 +59,7 @@ export default function Inventory() {
       const { data, error } = await supabase
         .from("inventory_items")
         .select("*, inventory_categories(name)")
+        .eq("user_id", user!.id) 
         .eq("is_archived", false)
         .order("name");
       if (error) throw error;
