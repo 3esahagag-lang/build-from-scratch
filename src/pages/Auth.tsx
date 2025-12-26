@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { BookOpen, Mail, Lock, ArrowLeft } from "lucide-react";
+import { BookOpen, Mail, Lock, ArrowLeft, User, Send } from "lucide-react";
 import { z } from "zod";
 
 const authSchema = z.object({
@@ -186,9 +186,53 @@ export default function Auth() {
         </div>
       </main>
 
+      {/* Marketing Section */}
+      <section className="px-6 py-8 text-center space-y-3">
+        <p className="text-lg md:text-xl font-medium text-foreground leading-relaxed">
+          محلي معمول عشان يسهّل شغلك
+        </p>
+        <p className="text-lg md:text-xl font-medium text-foreground leading-relaxed">
+          سجّل حساباتك وتابع فلوسك في ثواني
+        </p>
+        <p className="text-lg md:text-xl font-medium text-foreground leading-relaxed">
+          البضاعة والديون كلها قدام عينك
+        </p>
+        <p className="text-lg md:text-xl font-medium text-foreground leading-relaxed">
+          من غير تعقيد ولا وجع دماغ
+        </p>
+        <p className="text-lg md:text-xl font-medium text-primary leading-relaxed">
+          تطبيق بسيط لصاحب المحل البسيط
+        </p>
+      </section>
+
       {/* Footer */}
-      <footer className="p-4 text-center text-sm text-muted-foreground">
-        تم تطويره محليًا بواسطة <span className="font-bold text-foreground">عيسى</span>
+      <footer className="px-6 pb-8 text-center space-y-4">
+        <p className="text-sm text-muted-foreground">
+          جميع الحقوق محفوظة © 2026
+        </p>
+        
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <span>تم تطوير تطبيق محلي بواسطة</span>
+          <span className="inline-flex items-center gap-1 font-bold text-foreground">
+            <User className="h-4 w-4" />
+            عيسى
+          </span>
+        </div>
+        
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">تواصل معي</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            asChild
+          >
+            <a href="mailto:essahagag1@gmail.com">
+              <Send className="h-4 w-4" />
+              essahagag1@gmail.com
+            </a>
+          </Button>
+        </div>
       </footer>
     </div>
   );
