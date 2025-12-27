@@ -354,7 +354,6 @@ export default function Transfers() {
     setNewPhoneNumber(cleaned);
   };
 
-  const isValidPhone = newPhoneNumber.length === 11;
   const displayedNumbers = showAllNumbers ? fixedNumbers : fixedNumbers?.slice(0, 3);
 
   return (
