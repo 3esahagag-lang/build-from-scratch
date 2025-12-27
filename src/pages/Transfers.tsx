@@ -225,34 +225,35 @@ export default function Transfers() {
         toast({ title: "حدث خطأ", variant: "destructive" });
       }
     },
-  });
-
-  // Add fixed number mutation
+    
   const addFixedNumber = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from("fixed_numbers").insert({
-        user_id: user!.id,
-        name: newFixedName || newPhoneNumber,
-        phone_number: newPhoneNumber,
-        monthly_limit: parseFloat(newFixedLimit) || 0,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["fixed-numbers"] });
-      toast({ title: "تم إضافة الرقم بنجاح" });
-      setNewPhoneNumber("");
-      setNewFixedName("");
-      setNewFixedLimit("");
-      setFixedNumberDialogOpen(false);
-    onError: (error) => {
-  toast({
-    title: "فشل إضافة الرقم",
-    description: error.message,
-    variant: "destructive",
-  });
-},
-  });
+  mutationFn: async () => {
+    const { error } = await supabase.from("fixed_numbers").insert({
+      user_id: user!.id,
+      name: newFixedName || newPhoneNumber,
+      phone_number: newPhoneNumber,
+      monthly_limit: parseFloat(newFixedLimit) || 0,
+    });
+    if (error) throw error;
+  },
+
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ["fixed-numbers"] });
+    toast({ title: "تم إضافة الرقم بنجاح" });
+    setNewPhoneNumber("");
+    setNewFixedName("");
+    setNewFixedLimit("");
+    setFixedNumberDialogOpen(false);
+  },
+
+  onError: (error: any) => {
+    toast({
+      title: "فشل إضافة الرقم",
+      description: error.message,
+      variant: "destructive",
+    });
+  },
+});
 
   // Update fixed number mutation
   const updateFixedNumber = useMutation({
