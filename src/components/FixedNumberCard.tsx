@@ -91,12 +91,30 @@ export default function FixedNumberCard({
     setEditPhoneNumber(cleaned);
   };
 
-  const handleSaveNumber = () => {
-    if (editPhoneNumber.length === 11 && onUpdate) {
-      onUpdate(id, { phone_number: editPhoneNumber, name: editName || editPhoneNumber });
-      setEditMode(null);
-      setManageOpen(false);
-    }
+const handleSaveNumber = () => {
+  const cleanedPhone = editPhoneNumber.replace(/\D/g, "");
+
+  if (cleanedPhone.length !== 11) {
+    toast({
+      title: "رقم غير صحيح",
+      description: "رقم الهاتف يجب أن يكون 11 رقم",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  if (!onUpdate) return;
+
+  onUpdate(id, {
+    phone_number: cleanedPhone,
+    name: editName?.trim() || name,
+  });
+
+  setEditMode(null);
+  setManageOpen(false);
+};
+
+   
   };
 
   const handleSaveLimit = () => {
