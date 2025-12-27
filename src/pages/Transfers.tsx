@@ -466,12 +466,14 @@ export default function Transfers() {
                     </p>
                   </div>
                   <Button
-                    onClick={() => addFixedNumber.mutate()}
-                    disabled={!isValidPhone || addFixedNumber.isPending}
-                    className="w-full"
+                   onClick={() => {
+                   addFixedNumber.mutate();
+                   }}
+                  disabled={addFixedNumber.isPending}
+                  className="w-full"
                   >
-                    {addFixedNumber.isPending ? "جاري الإضافة..." : "إضافة الرقم"}
-                  </Button>
+                  {addFixedNumber.isPending ? "جاري الإضافة..." : "إضافة الرقم"}
+                </Button>
                 </div>
               </DialogContent>
             </Dialog>
