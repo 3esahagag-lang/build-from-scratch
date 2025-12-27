@@ -226,34 +226,46 @@ export default function Transfers() {
       }
     },
     
-  const addFixedNumber = useMutation({
+    const addFixedNumber = useMutation({
   mutationFn: async () => {
-    const { error } = await supabase.from("fixed_numbers").insert({
-      user_id: user!.id,
-      name: newFixedName || newPhoneNumber,
-      phone_number: newPhoneNumber,
-      monthly_limit: parseFloat(newFixedLimit) || 0,
-    });
-    if (error) throw error;
-  },
+    if (!user?.id) {
+      throw new Error("User not authenticated");
+    }
 
+    const payload = {
+      user_id: user.id,
+      number: newPhoneNumber,
+      name: newFixedName?.trim() || newPhoneNumber,
+      monthly_limit: Number(newFixedLimit) || 0,
+    };
+
+    const { error } = await supabase
+      .from("fixed_numbers")
+      .insert(payload);
+
+    if (error) {
+      console.error("Insert fixed number error:", error);
+      throw error;
+    }
+  },
   onSuccess: () => {
     queryClient.invalidateQueries({ queryKey: ["fixed-numbers"] });
-    toast({ title: "تم إضافة الرقم بنجاح" });
+
     setNewPhoneNumber("");
     setNewFixedName("");
     setNewFixedLimit("");
     setFixedNumberDialogOpen(false);
-  },
 
-  onError: (error) => {
-  console.log("ADD FIXED NUMBER ERROR:", error);
-  toast({
-    title: "خطأ",
-    description: error.message,
-    variant: "destructive",
-  });
-},
+    toast({
+      title: "تم إضافة الرقم بنجاح",
+    });
+  },
+  onError: (error: any) => {
+    toast({
+      title: "فشل إضافة الرقم",
+      description: error.message ?? "خطأ غير معروف",
+      variant: "destructive",
+    });
   },
 });
 
