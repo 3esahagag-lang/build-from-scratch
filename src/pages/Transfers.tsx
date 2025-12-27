@@ -233,11 +233,11 @@ export default function Transfers() {
     }
 
     const payload = {
-      user_id: user.id,
-      number: newPhoneNumber,
-      name: newFixedName?.trim() || newPhoneNumber,
-      monthly_limit: Number(newFixedLimit) || 0,
-    };
+  user_id: user.id,
+  phone_number: newPhoneNumber, // ✅ صح
+  name: newFixedName?.trim() || newPhoneNumber,
+  monthly_limit: Number(newFixedLimit) || 0,
+  };
 
     const { error } = await supabase
       .from("fixed_numbers")
