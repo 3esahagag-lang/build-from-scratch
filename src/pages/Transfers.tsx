@@ -249,7 +249,9 @@ export default function Transfers() {
     }
   },
   onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ["fixed-numbers"] });
+    queryClient.invalidateQueries({
+  queryKey: ["fixed-numbers", user?.id],
+});
 
     setNewPhoneNumber("");
     setNewFixedName("");
