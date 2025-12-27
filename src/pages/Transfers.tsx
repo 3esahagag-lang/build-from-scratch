@@ -245,10 +245,13 @@ export default function Transfers() {
       setNewFixedName("");
       setNewFixedLimit("");
       setFixedNumberDialogOpen(false);
-    },
-    onError: () => {
-      toast({ title: "حدث خطأ - تأكد من صحة الرقم", variant: "destructive" });
-    },
+    onError: (error) => {
+  toast({
+    title: "فشل إضافة الرقم",
+    description: error.message,
+    variant: "destructive",
+  });
+},
   });
 
   // Update fixed number mutation
