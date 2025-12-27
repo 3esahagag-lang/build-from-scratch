@@ -246,12 +246,14 @@ export default function Transfers() {
     setFixedNumberDialogOpen(false);
   },
 
-  onError: (error: any) => {
-    toast({
-      title: "فشل إضافة الرقم",
-      description: error.message,
-      variant: "destructive",
-    });
+  onError: (error) => {
+  console.log("ADD FIXED NUMBER ERROR:", error);
+  toast({
+    title: "خطأ",
+    description: error.message,
+    variant: "destructive",
+  });
+},
   },
 });
 
