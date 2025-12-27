@@ -484,19 +484,19 @@ export default function Transfers() {
                 
                 return (
                   <FixedNumberCard
-                    key={fn.id}
-                    id={fn.id}
-                    phoneNumber={fn.phone_number || fn.name}
-                    name={fn.phone_number ? fn.name : ""}
-                    used={used}
-                    limit={limit}
-                    isDisabled={isDisabled}
-                    isExpanded={expandedNumberId === fn.id}
-                    isSubmitting={addFixedNumberTransfer.isPending}
-                    onToggleExpand={(id) => setExpandedNumberId(id)}
-                    onSubmitTransfer={handleSubmitFixedNumberTransfer}
-                    onUpdate={(id, data) => updateFixedNumber.mutate({ id, data })}
-                    onDisable={(id) => disableFixedNumber.mutate(id)}
+                  key={fn.id}
+                  id={fn.id}
+                  phoneNumber={fn.phone_number}
+                  name={fn.name}
+                  used={used}
+                  limit={limit}
+                  isDisabled={isDisabled}
+                  isExpanded={expandedNumberId === fn.id}
+                  isSubmitting={addFixedNumberTransfer.isPending}
+                  onToggleExpand={(id) => setExpandedNumberId(id)}
+                  onSubmitTransfer={handleSubmitFixedNumberTransfer}
+                  onUpdate={(id, data) => updateFixedNumber.mutate({ id, data })}
+                  onDisable={(id) => disableFixedNumber.mutate(id)}
                   />
                 );
               })}
