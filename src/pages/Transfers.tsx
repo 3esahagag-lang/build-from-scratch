@@ -76,7 +76,7 @@ const { data: fixedNumbers, isLoading } = useQuery({
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
-*/
+
       // Get from fixed_number_transfers (legacy)
       const { data: fixedData, error: fixedError } = await supabase
         .from("fixed_number_transfers")
@@ -103,6 +103,7 @@ const { data: fixedNumbers, isLoading } = useQuery({
           usage[t.fixed_number_id] = (usage[t.fixed_number_id] || 0) + Number(t.amount);
         }
       });
+  */
       
       // Add from transfers table
       transfersData?.forEach(t => {
@@ -115,7 +116,7 @@ const { data: fixedNumbers, isLoading } = useQuery({
     },
     enabled: !!user,
   });
-
+/*
   // Fetch transfer summary (count, total amount, total profit)
   const { data: transferSummary } = useQuery({
     queryKey: ["transfers-summary", user?.id],
@@ -154,7 +155,7 @@ const { data: fixedNumbers, isLoading } = useQuery({
     },
     enabled: !!user,
   });
-
+*/
   // Add regular transfer mutation
   const addTransfer = useMutation({
     mutationFn: async () => {
