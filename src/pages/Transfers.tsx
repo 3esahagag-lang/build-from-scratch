@@ -67,6 +67,8 @@ const { data: fixedNumbers, isLoading } = useQuery({
     return data;
     },
     });
+  // 👇 حط السطر ده هنا بالظبط
+console.log("FIXED NUMBERS FROM QUERY 👉", fixedNumbers);
 
   // Fetch monthly usage for fixed numbers (from both tables)
   const { data: monthlyUsage } = useQuery({
