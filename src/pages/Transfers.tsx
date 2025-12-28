@@ -69,14 +69,14 @@ const { data: fixedNumbers, isLoading } = useQuery({
     },
     });
 
-  // Fetch monthly usage for fixed numbers (from both tables)
+/* // Fetch monthly usage for fixed numbers (from both tables)
   const { data: monthlyUsage } = useQuery({
     queryKey: ["fixed-number-monthly-usage", user?.id],
     queryFn: async () => {
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
-
+*/
       // Get from fixed_number_transfers (legacy)
       const { data: fixedData, error: fixedError } = await supabase
         .from("fixed_number_transfers")
