@@ -371,7 +371,9 @@ const { data: fixedNumbers, error, isLoading } = useQuery({
     setNewPhoneNumber(cleaned);
   };
 
-  const displayedNumbers = showAllNumbers ? fixedNumbers : fixedNumbers?.slice(0, 3);
+  const displayedNumbers = showAllNumbers
+  ? fixedNumbers
+  : fixedNumbers?.slice(-3);
 
   return (
     <Layout>
