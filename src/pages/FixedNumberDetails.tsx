@@ -1,10 +1,22 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowRight, Phone, Settings, Pencil, Trash2, Calendar, ArrowDownUp, Ban, CheckCircle } from "lucide-react";
-import { Link, useParams, Navigate, useNavigate } from "react-router-dom";
+import {
+  ArrowRight,
+  Phone,
+  Settings,
+  Pencil,
+  Trash2,
+  Calendar,
+  CheckCircle,
+} from "lucide-react";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,101 +49,101 @@ export default function FixedNumberDetails() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [disableDialogOpen, setDisableDialogOpen] = useState(false);
+
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editLimit, setEditLimit] = useState("");
 
-  // Fetch fixed number details
+  /* ===============================
+     Fetch fixed number
+  =============================== */
   const { data: fixedNumber, isLoading: numberLoading } = useQuery({
     queryKey: ["fixed-number", id],
+    enabled: !!user && !!id,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fixed_numbers")
         .select("*")
-        .eq("id", id!)
+        .eq("id", id)
         .maybeSingle();
+
       if (error) throw error;
       return data;
     },
-    enabled: !!user && !!id,
   });
 
-  // Fetch transfers for this fixed number (this number's exclusive data)
-  const { data: transfers, isLoading: transfersLoading } = useQuery({
+  /* ===============================
+     Fetch transfers (NEW SOURCE)
+  =============================== */
+  const { data: transfers = [], isLoading: transfersLoading } = useQuery({
     queryKey: ["fixed-number-transfers", id],
+    enabled: !!user && !!id,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("fixed_number_transfers")
+        .from("transfers")
         .select("*")
-        .eq("fixed_number_id", id!)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user && !!id,
-  });
-
-  // Fetch limit history (monthly breakdown for this number only)
-  const { data: limitHistory } = useQuery({
-    queryKey: ["fixed-number-limit-history", id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("fixed_number_transfers")
-        .select("amount, created_at")
-        .eq("fixed_number_id", id!)
+        .eq("fixed_number_id", id)
+        .eq("is_archived", false)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-
-      // Group by month
-      const monthlyData: Record<string, number> = {};
-      data?.forEach((t) => {
-        const month = new Date(t.created_at).toISOString().slice(0, 7);
-        monthlyData[month] = (monthlyData[month] || 0) + Number(t.amount);
-      });
-
-      return Object.entries(monthlyData)
-        .map(([month, total]) => ({ month, total }))
-        .slice(0, 6); // Last 6 months
+      return data ?? [];
     },
-    enabled: !!user && !!id,
   });
 
-  // Update fixed number mutation
+  /* ===============================
+     Monthly usage
+  =============================== */
+  const monthlyUsage = (() => {
+    if (!transfers.length) return 0;
+
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    return transfers
+      .filter((t) => new Date(t.created_at) >= startOfMonth)
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+  })();
+
+  const limit = Number(fixedNumber?.monthly_limit || 0);
+  const percentage = limit > 0 ? Math.min((monthlyUsage / limit) * 100, 100) : 0;
+  const remaining = Math.max(limit - monthlyUsage, 0);
+
+  /* ===============================
+     Mutations
+  =============================== */
   const updateMutation = useMutation({
-    mutationFn: async (updates: { name?: string; phone_number?: string; monthly_limit?: number; is_disabled?: boolean }) => {
+    mutationFn: async (updates: {
+      name?: string;
+      phone_number?: string;
+      monthly_limit?: number;
+      is_disabled?: boolean;
+    }) => {
       const { error } = await supabase
         .from("fixed_numbers")
         .update(updates)
-        .eq("id", id!);
+        .eq("id", id);
+
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fixed-number", id] });
       queryClient.invalidateQueries({ queryKey: ["fixed-numbers"] });
+      toast.success("تم تحديث البيانات");
       setEditDialogOpen(false);
       setDisableDialogOpen(false);
-      toast.success("تم تحديث بيانات الرقم");
     },
-    onError: () => {
-      toast.error("فشل تحديث البيانات");
-    },
+    onError: () => toast.error("فشل التحديث"),
   });
 
-  // Delete fixed number mutation
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      // First delete all transfers for this number
-      await supabase
-        .from("fixed_number_transfers")
-        .delete()
-        .eq("fixed_number_id", id!);
-      
-      // Then delete the fixed number
       const { error } = await supabase
         .from("fixed_numbers")
         .delete()
-        .eq("id", id!);
+        .eq("id", id);
+
       if (error) throw error;
     },
     onSuccess: () => {
@@ -139,91 +151,25 @@ export default function FixedNumberDetails() {
       toast.success("تم حذف الرقم");
       navigate("/transfers");
     },
-    onError: () => {
-      toast.error("فشل حذف الرقم");
-    },
+    onError: () => toast.error("فشل الحذف"),
   });
 
-  // Calculate monthly usage
-  const monthlyUsage = (() => {
-    if (!transfers) return 0;
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-    
-    return transfers
-      .filter((t) => new Date(t.created_at) >= startOfMonth)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-  })();
-
-  const limit = Number(fixedNumber?.monthly_limit) || 0;
-  const percentage = limit > 0 ? Math.min((monthlyUsage / limit) * 100, 100) : 0;
-  const remaining = Math.max(limit - monthlyUsage, 0);
-
-  const getProgressColor = () => {
-    if (fixedNumber?.is_disabled) return "bg-muted";
-    if (percentage >= 100) return "bg-destructive";
-    if (percentage >= 80) return "bg-amber-500";
-    if (percentage >= 50) return "bg-primary";
-    return "bg-income";
-  };
-
-  const formatDate = (date: string) => {
-    const d = new Date(date);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (d.toDateString() === today.toDateString()) return "اليوم";
-    if (d.toDateString() === yesterday.toDateString()) return "أمس";
-    return d.toLocaleDateString("ar-EG", {
-      day: "numeric",
-      month: "short",
-    });
-  };
-
-  const formatTime = (date: string) => {
-    return new Date(date).toLocaleTimeString("ar-EG", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
+  /* ===============================
+     Helpers
+  =============================== */
   const openEditDialog = () => {
     setEditName(fixedNumber?.name || "");
     setEditPhone(fixedNumber?.phone_number || "");
-    setEditLimit(String(fixedNumber?.monthly_limit || 0));
+    setEditLimit(String(fixedNumber?.monthly_limit || ""));
     setEditDialogOpen(true);
   };
-
-  const handleSaveEdit = () => {
-    updateMutation.mutate({
-      name: editName,
-      phone_number: editPhone,
-      monthly_limit: Number(editLimit) || 0,
-    });
-  };
-
-  const handleToggleDisable = () => {
-    updateMutation.mutate({
-      is_disabled: !fixedNumber?.is_disabled,
-    });
-  };
-
-  const handleDelete = () => {
-    deleteMutation.mutate();
-  };
-
-  if (!id) {
-    return <Navigate to="/transfers" replace />;
-  }
 
   const isLoading = numberLoading || transfersLoading;
 
   if (isLoading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="flex justify-center items-center min-h-[50vh]">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       </Layout>
@@ -233,352 +179,125 @@ export default function FixedNumberDetails() {
   if (!fixedNumber) {
     return (
       <Layout>
-        <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <Link
-              to="/transfers"
-              className="p-2 rounded-lg hover:bg-muted transition-colors"
-            >
-              <ArrowRight className="h-5 w-5" />
-            </Link>
-            <h1 className="text-2xl font-bold text-foreground">الرقم غير موجود</h1>
-          </div>
-          <p className="text-muted-foreground text-center py-12">
-            لم يتم العثور على هذا الرقم
-          </p>
-        </div>
+        <p className="text-center text-muted-foreground">
+          لم يتم العثور على الرقم
+        </p>
       </Layout>
     );
   }
 
+  /* ===============================
+     JSX
+  =============================== */
   return (
     <Layout>
-      <div className="space-y-6 pb-20 md:pb-0">
-        {/* Header with Settings */}
-        <div className="flex items-center justify-between animate-slide-up">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link
-              to="/transfers"
-              className="p-2 rounded-lg hover:bg-muted transition-colors"
-            >
-              <ArrowRight className="h-5 w-5" />
+            <Link to="/transfers">
+              <ArrowRight />
             </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">بيانات الرقم</h1>
-            </div>
+            <h1 className="text-2xl font-bold">{fixedNumber.name}</h1>
           </div>
-          <button
-            onClick={openEditDialog}
-            className="p-2.5 rounded-xl bg-muted hover:bg-accent transition-colors"
-          >
-            <Settings className="h-5 w-5 text-muted-foreground" />
-          </button>
+          <Button variant="ghost" onClick={openEditDialog}>
+            <Settings />
+          </Button>
         </div>
 
-        {/* Phone Number Hero Card */}
-        <div 
-          className={`notebook-paper p-6 animate-slide-up ${
-            fixedNumber.is_disabled ? "opacity-60" : ""
-          }`}
-          style={{ animationDelay: "50ms" }}
-        >
+        {/* Phone Card */}
+        <div className="notebook-paper p-6">
           <div className="flex items-center gap-4">
-            <div className={`p-4 rounded-2xl ${fixedNumber.is_disabled ? "bg-muted" : "bg-primary/10"}`}>
-              <Phone className={`h-8 w-8 ${fixedNumber.is_disabled ? "text-muted-foreground" : "text-primary"}`} />
-            </div>
-            <div className="flex-1">
-              <p className="font-mono text-2xl font-bold tracking-wide" dir="ltr">
-                {fixedNumber.phone_number || "—"}
-              </p>
-              <p className="text-lg text-muted-foreground">{fixedNumber.name}</p>
-            </div>
-            {fixedNumber.is_disabled && (
-              <span className="px-3 py-1.5 rounded-full bg-destructive/20 text-destructive text-sm font-medium">
-                معطّل
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Summary Stats */}
-        <div className="animate-slide-up" style={{ animationDelay: "100ms" }}>
-          <h2 className="text-sm font-medium text-muted-foreground mb-3">ملخص الاستهلاك الشهري</h2>
-          
-          {/* Progress Bar */}
-          {limit > 0 && (
-            <div className="notebook-paper p-4 mb-3">
-              <div className="relative h-3 w-full overflow-hidden rounded-full bg-secondary">
-                <div
-                  className={`h-full transition-all duration-500 ${getProgressColor()}`}
-                  style={{ width: `${percentage}%` }}
-                />
-              </div>
-              <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                <span>{Math.round(percentage)}% مستخدم</span>
-                <span>من {limit.toLocaleString("ar-EG")}</span>
-              </div>
-            </div>
-          )}
-          
-          {/* Stats Grid */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="notebook-paper p-4 text-center">
-              <p className="text-xs text-muted-foreground mb-1">الحد الشهري</p>
-              <p className="font-bold text-xl">
-                {limit > 0 ? limit.toLocaleString("ar-EG") : "—"}
-              </p>
-            </div>
-            <div className="notebook-paper p-4 text-center">
-              <p className="text-xs text-muted-foreground mb-1">المستخدم</p>
-              <p className="font-bold text-xl text-primary">
-                {monthlyUsage.toLocaleString("ar-EG")}
-              </p>
-            </div>
-            <div className="notebook-paper p-4 text-center">
-              <p className="text-xs text-muted-foreground mb-1">المتبقي</p>
-              <p className={`font-bold text-xl ${limit > 0 && percentage >= 100 ? "text-destructive" : "text-income"}`}>
-                {limit > 0 ? remaining.toLocaleString("ar-EG") : "∞"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Limit History - Monthly Usage Over Time */}
-        {limitHistory && limitHistory.length > 0 && (
-          <section className="animate-slide-up" style={{ animationDelay: "125ms" }}>
-            <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-muted-foreground" />
-              سجل الاستخدام الشهري
-            </h2>
-            <div className="space-y-2">
-              {limitHistory.map((item) => {
-                const [year, month] = item.month.split("-");
-                const monthName = new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString("ar-EG", { 
-                  month: "long", 
-                  year: "numeric" 
-                });
-                const usagePercent = limit > 0 ? Math.min((item.total / limit) * 100, 100) : 0;
-                
-                return (
-                  <div key={item.month} className="notebook-paper p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-muted-foreground">{monthName}</span>
-                      <span className="font-bold">{item.total.toLocaleString("ar-EG")}</span>
-                    </div>
-                    {limit > 0 && (
-                      <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
-                        <div
-                          className={`h-full transition-all duration-300 ${
-                            usagePercent >= 100 
-                              ? "bg-destructive" 
-                              : usagePercent >= 80 
-                                ? "bg-amber-500" 
-                                : "bg-income"
-                          }`}
-                          style={{ width: `${usagePercent}%` }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* Linked Transfers - Single Source of Truth (this number's exclusive data) */}
-        <section className="animate-slide-up" style={{ animationDelay: "150ms" }}>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <ArrowDownUp className="h-5 w-5 text-primary" />
-              سجل التحويلات
-            </h2>
-            {transfers && transfers.length > 0 && (
-              <span className="text-sm text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
-                {transfers.length}
-              </span>
-            )}
-          </div>
-          
-          <div className="space-y-2">
-            {!transfers || transfers.length === 0 ? (
-              <div className="notebook-paper p-8 text-center">
-                <ArrowDownUp className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground">لا توجد تحويلات على هذا الرقم</p>
-              </div>
-            ) : (
-              transfers.map((t) => (
-                <div
-                  key={t.id}
-                  className="notebook-paper p-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-income/10">
-                        <ArrowDownUp className="h-4 w-4 text-income" />
-                      </div>
-                      <div>
-                        {t.notes && (
-                          <p className="font-medium text-sm">{t.notes}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(t.created_at)} - {formatTime(t.created_at)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-left">
-                      <span className="font-bold text-lg text-income">
-                        +{Number(t.amount).toLocaleString("ar-EG")}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        {/* Actions */}
-        <section className="animate-slide-up space-y-3" style={{ animationDelay: "200ms" }}>
-          <h2 className="text-sm font-medium text-muted-foreground">الإجراءات</h2>
-          <div className="grid grid-cols-3 gap-3">
-            <Button
-              variant="outline"
-              className="h-auto py-4 flex flex-col items-center gap-2"
-              onClick={openEditDialog}
-            >
-              <Pencil className="h-5 w-5" />
-              <span className="text-xs">تعديل</span>
-            </Button>
-            <Button
-              variant="outline"
-              className={`h-auto py-4 flex flex-col items-center gap-2 ${
-                fixedNumber.is_disabled 
-                  ? "border-income/30 text-income hover:bg-income/10 hover:text-income" 
-                  : "border-amber-500/30 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
-              }`}
-              onClick={() => setDisableDialogOpen(true)}
-            >
-              {fixedNumber.is_disabled ? (
-                <CheckCircle className="h-5 w-5" />
-              ) : (
-                <Ban className="h-5 w-5" />
+            <Phone />
+            <div>
+              <p className="font-mono text-xl">{fixedNumber.phone_number}</p>
+              {fixedNumber.is_disabled && (
+                <span className="text-sm text-destructive">موقوف</span>
               )}
-              <span className="text-xs">{fixedNumber.is_disabled ? "تفعيل" : "تعطيل"}</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="h-auto py-4 flex flex-col items-center gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              onClick={() => setDeleteDialogOpen(true)}
-            >
-              <Trash2 className="h-5 w-5" />
-              <span className="text-xs">حذف</span>
-            </Button>
+            </div>
           </div>
-        </section>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="notebook-paper p-4 text-center">
+            <p className="text-sm text-muted-foreground">الحد</p>
+            <p className="font-bold">{limit.toLocaleString("ar-EG")}</p>
+          </div>
+          <div className="notebook-paper p-4 text-center">
+            <p className="text-sm text-muted-foreground">المستخدم</p>
+            <p className="font-bold">{monthlyUsage.toLocaleString("ar-EG")}</p>
+          </div>
+          <div className="notebook-paper p-4 text-center">
+            <p className="text-sm text-muted-foreground">المتبقي</p>
+            <p className="font-bold">{remaining.toLocaleString("ar-EG")}</p>
+          </div>
+        </div>
+
+        {/* Transfers */}
+        <div className="space-y-2">
+          {transfers.length === 0 && (
+            <p className="text-center text-muted-foreground">
+              لا توجد تحويلات
+            </p>
+          )}
+          {transfers.map((t) => (
+            <div key={t.id} className="notebook-paper p-4 flex justify-between">
+              <div>
+                <p className="text-sm">{t.notes || "—"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(t.created_at).toLocaleString("ar-EG")}
+                </p>
+              </div>
+              <div className="font-bold">
+                {Number(t.amount).toLocaleString("ar-EG")}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Edit Dialog */}
+      {/* Dialogs */}
+      {/* Edit */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>تعديل بيانات الرقم</DialogTitle>
-            <DialogDescription>
-              قم بتعديل بيانات الرقم والحد الشهري
-            </DialogDescription>
+            <DialogTitle>تعديل الرقم</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>الاسم</Label>
-              <Input
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                placeholder="اسم الرقم"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>رقم الهاتف</Label>
-              <Input
-                value={editPhone}
-                onChange={(e) => setEditPhone(e.target.value)}
-                placeholder="رقم الهاتف"
-                dir="ltr"
-                className="text-left"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>الحد الشهري</Label>
-              <Input
-                type="number"
-                value={editLimit}
-                onChange={(e) => setEditLimit(e.target.value)}
-                placeholder="0 = بدون حد"
-                dir="ltr"
-                className="text-left"
-              />
-              <p className="text-xs text-muted-foreground">
-                اتركه 0 لإزالة الحد الشهري
-              </p>
-            </div>
-          </div>
+
+          <Label>الاسم</Label>
+          <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+
+          <Label>الرقم</Label>
+          <Input
+            value={editPhone}
+            onChange={(e) => setEditPhone(e.target.value)}
+            dir="ltr"
+          />
+
+          <Label>الحد الشهري</Label>
+          <Input
+            type="number"
+            value={editLimit}
+            onChange={(e) => setEditLimit(e.target.value)}
+            dir="ltr"
+          />
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              إلغاء
-            </Button>
-            <Button onClick={handleSaveEdit} disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? "جاري الحفظ..." : "حفظ"}
+            <Button
+              onClick={() =>
+                updateMutation.mutate({
+                  name: editName,
+                  phone_number: editPhone,
+                  monthly_limit: Number(editLimit),
+                })
+              }
+            >
+              حفظ
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Disable/Enable Confirmation */}
-      <AlertDialog open={disableDialogOpen} onOpenChange={setDisableDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {fixedNumber.is_disabled ? "تفعيل الرقم" : "تعطيل الرقم"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {fixedNumber.is_disabled 
-                ? "هل تريد تفعيل هذا الرقم؟ سيصبح متاحاً للتحويلات مرة أخرى."
-                : "هل تريد تعطيل هذا الرقم؟ لن يظهر في قائمة التحويلات ولكن لن يتم حذف بياناته."
-              }
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleToggleDisable}
-              className={fixedNumber.is_disabled ? "bg-income text-income-foreground hover:bg-income/90" : ""}
-            >
-              {updateMutation.isPending ? "جاري التحديث..." : fixedNumber.is_disabled ? "تفعيل" : "تعطيل"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Delete Confirmation */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>حذف الرقم نهائياً</AlertDialogTitle>
-            <AlertDialogDescription>
-              هل أنت متأكد من حذف هذا الرقم؟ سيتم حذف جميع التحويلات المرتبطة به أيضاً.
-              هذا الإجراء لا يمكن التراجع عنه.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteMutation.isPending ? "جاري الحذف..." : "حذف نهائي"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Layout>
   );
 }
