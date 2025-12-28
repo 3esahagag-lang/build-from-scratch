@@ -62,13 +62,12 @@ const { data: fixedNumbers, isLoading } = useQuery({
       .eq("user_id", user.id) // ⬅️ ده السبب الرئيسي للمشكلة
       .order("is_disabled", { ascending: true })
       .order("created_at", { ascending: false });
-
+     console.log("FIXED NUMBERS FROM QUERY 👉", fixedNumbers);
+    
     if (error) throw error;
     return data;
     },
     });
-  // 👇 حط السطر ده هنا بالظبط
-console.log("FIXED NUMBERS FROM QUERY 👉", fixedNumbers);
 
   // Fetch monthly usage for fixed numbers (from both tables)
   const { data: monthlyUsage } = useQuery({
