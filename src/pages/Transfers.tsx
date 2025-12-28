@@ -52,22 +52,21 @@ export default function Transfers() {
 
   // Fetch fixed numbers
   // Fetch fixed numbers (FIXED)
-const { data: fixedNumbers, isLoading } = useQuery({
+const { data: fixedNumbers, error, isLoading } = useQuery({
   queryKey: ["fixed-numbers", user?.id],
-  enabled: !!user?.id, // ⬅️ مهم
+  enabled: !!user?.id,
   queryFn: async () => {
     const { data, error } = await supabase
       .from("fixed_numbers")
       .select("*")
-      .eq("user_id", user.id) // ⬅️ ده السبب الرئيسي للمشكلة
-      .order("is_disabled", { ascending: true })
-      .order("created_at", { ascending: false });
-     console.log("FIXED NUMBERS FROM QUERY 👉", fixedNumbers);
-    
+      .eq("user_id", user.id);
+
+    console.log("FIXED NUMBERS RAW 👉", data, error);
+
     if (error) throw error;
     return data;
-    },
-    });
+  },
+});
 
 /* // Fetch monthly usage for fixed numbers (from both tables)
   const { data: monthlyUsage } = useQuery({
