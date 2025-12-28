@@ -203,6 +203,7 @@ const { data: fixedNumbers, error, isLoading } = useQuery({
         profit: transferProfit || 0,
         type: "income",
         notes: transferNotes || null,
+        is_archived: false,
       });
       if (error) throw error;
     },
