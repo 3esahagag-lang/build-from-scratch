@@ -75,27 +75,27 @@ export default function FixedNumberDetails() {
   /* ===============================
      Fetch transfers (NEW SOURCE)
   =============================== */
-  const { data: transfers = [], isLoading: transfersLoading } = useQuery({
-    queryKey: ["fixed-number-transfers", id],
-    enabled: !!user && !!id,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transfers")
-        .select("*")
-        .eq("fixed_number_id", id)
-        .eq("is_archived", false)
-        .order("created_at", { ascending: false });
+  const { data: transfers = [], isLoading } = useQuery({
+  queryKey: ["fixed-number-transfers", id],
+  enabled: !!id,
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("transfers")
+      .select("*")
+      .eq("fixed_number_id", id)
+      .eq("is_archived", false)
+      .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
+    if (error) throw error;
+    return data || [];
+  },
+});
 
   /* ===============================
      Monthly usage
   =============================== */
   const monthlyUsage = (() => {
-    if (!transfers.length) return 0;
+  if (!transfers || transfers.length === 0) return 0;
 
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
