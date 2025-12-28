@@ -51,20 +51,22 @@ export default function Transfers() {
   const [expandedNumberId, setExpandedNumberId] = useState<string | null>(null);
 
   // Fetch fixed numbers
-  const { data: fixedNumbers } = useQuery({
-    queryKey: ["fixed-numbers", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("fixed_numbers")
-        .select("*")
-        .order("is_disabled", { ascending: true })
-        .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      return data;
+  // Fetch fixed numbers (FIXED)
+const { data: fixedNumbers, isLoading } = useQuery({
+  queryKey: ["fixed-numbers", user?.id],
+  enabled: !!user?.id, // ⬅️ مهم
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("fixed_numbers")
+      .select("*")
+      .eq("user_id", user.id) // ⬅️ ده السبب الرئيسي للمشكلة
+      .order("is_disabled", { ascending: true })
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data;
     },
-    enabled: !!user,
-  });
+    });
 
   // Fetch monthly usage for fixed numbers (from both tables)
   const { data: monthlyUsage } = useQuery({
