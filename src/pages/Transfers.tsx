@@ -68,7 +68,7 @@ const { data: fixedNumbers, error, isLoading } = useQuery({
   },
 });
 
-/* // Fetch monthly usage for fixed numbers (from both tables)
+// Fetch monthly usage for fixed numbers (from both tables)
   const { data: monthlyUsage } = useQuery({
     queryKey: ["fixed-number-monthly-usage", user?.id],
     queryFn: async () => {
@@ -102,7 +102,7 @@ const { data: fixedNumbers, error, isLoading } = useQuery({
           usage[t.fixed_number_id] = (usage[t.fixed_number_id] || 0) + Number(t.amount);
         }
       });
-  */
+  
       
       // Add from transfers table
       transfersData?.forEach(t => {
@@ -115,7 +115,7 @@ const { data: fixedNumbers, error, isLoading } = useQuery({
     },
     enabled: !!user,
   });
-/*
+
   // Fetch transfer summary (count, total amount, total profit)
   const { data: transferSummary } = useQuery({
     queryKey: ["transfers-summary", user?.id],
@@ -154,7 +154,7 @@ const { data: fixedNumbers, error, isLoading } = useQuery({
     },
     enabled: !!user,
   });
-*/
+
   // Add regular transfer mutation
   const addTransfer = useMutation({
     mutationFn: async () => {
