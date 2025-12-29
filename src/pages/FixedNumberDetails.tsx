@@ -75,21 +75,25 @@ export default function FixedNumberDetails() {
   /* ===============================
      Fetch transfers (NEW SOURCE)
   =============================== */
-  const { data: transfers = [], isLoading } = useQuery({
-  queryKey: ["fixed-number-transfers", id],
-  enabled: !!id,
-  queryFn: async () => {
-    const { data, error } = await supabase
-      .from("transfers")
-      .select("*")
-      .eq("fixed_number_id", id)
-      .eq("is_archived", false)
-      .order("created_at", { ascending: false });
+    const { data: transfers = [], isLoading } = useQuery({
+    queryKey: ["transfers", "today"], // أضفنا كلمة today هنا لتوحيد المفتاح
+    queryFn: async () => {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0); // نضبط الوقت على بداية اليوم الحالي
+      
+      const { data, error } = await supabase
+        .from("transfers")
+        .select("*")
+        .eq("user_id", user?.id)
+        .gte("created_at", startOfDay.toISOString()) // يجلب فقط عمليات اليوم ليكون الملخص دقيقاً
+        .order("created_at", { ascending: false });
+        
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
 
-    if (error) throw error;
-    return data || [];
-  },
-});
 
   /* ===============================
      Monthly usage
