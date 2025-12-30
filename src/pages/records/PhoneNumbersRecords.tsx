@@ -70,14 +70,14 @@ export default function PhoneNumbersRecords() {
      Fetch transfers for selected number
      SINGLE SOURCE OF TRUTH
   =============================== */
-  const { data: numberTransfers = [] } = useQuery({
+
+const { data: numberTransfers = [] } = useQuery({
   queryKey: ["phone-number-transfers", selectedNumberId, user?.id],
   enabled: !!selectedNumberId && !!user?.id,
   queryFn: async () => {
     const { data, error } = await supabase
-      .schema("public")
       .from("transfers")
-      .select("id, amount, notes, created_at, profit")
+      .select("id, amount, notes, created_at, profit, fixed_number_id")
       .eq("user_id", user!.id)
       .eq("fixed_number_id", selectedNumberId)
       .eq("is_archived", false)
@@ -87,6 +87,7 @@ export default function PhoneNumbersRecords() {
     return data as Transfer[];
   },
 });
+  
   /* ===============================
      Transfer counts per number
   =============================== */
