@@ -215,23 +215,20 @@ const { data: monthlyUsage } = useQuery({
   queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
   queryClient.invalidateQueries({ queryKey: ["today-stats"] });
 
-  // Fixed number pages
-  queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage"] });
-  queryClient.invalidateQueries({ queryKey: ["fixed-number-transfers"] });
+  // Fixed numbers usage (واحد بس)
+  queryClient.invalidateQueries({
+    queryKey: ["fixed-number-monthly-usage", user?.id],
+  });
 
-   queryClient.invalidateQueries({
-   queryKey: ["fixed-number-monthly-usage", user?.id],
-   });
-   
-      
   // Records
-  queryClient.invalidateQueries({ queryKey: ["phone-number-transfers"],
-  exact: false,
-});
+  queryClient.invalidateQueries({
+    queryKey: ["phone-number-transfers"],
+  });
 
   toast({ title: "تم تسجيل التحويل على الرقم بنجاح" });
   setExpandedNumberId(null);
 },
+
     
     const addFixedNumber = useMutation({
   mutationFn: async () => {
