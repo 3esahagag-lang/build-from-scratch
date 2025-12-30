@@ -84,11 +84,11 @@ export async function getLedgerEntry(
   entryId: string
 ): Promise<LedgerEntry | null> {
   const { data, error } = await supabase
-    .from("ledger_entries")
-    .select("*")
-    .eq("id", entryId)
-    .maybeSingle();
-
+  .from("ledger_entries")
+  .select("*")
+  .eq("id", entryId)
+  .eq("user_id", userId) // ← أضف السطر ده
+  .maybeSingle();
   if (error) {
     throw new LedgerError("Failed to get ledger entry", "DB_ERROR", error);
   }
