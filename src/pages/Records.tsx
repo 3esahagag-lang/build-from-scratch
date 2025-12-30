@@ -55,17 +55,28 @@ export default function Records() {
   const { user } = useAuth();
 
   // Fetch transfers count and total - EXCLUDE fixed number transfers (they are separate entities)
-const { data: transfers = [] } = useQuery({
-  queryKey: ["transfers", user?.id],
+const { data: transfersData } = useQuery({
+  queryKey: ["records-transfers-summary", user?.id],
   queryFn: async () => {
-    const { data, error } = await supabase
+    const { data: transfers, error } = await supabase
       .from("transfers")
-      .select("*")
+      .select("amount, type")
       .eq("is_archived", false)
-      .order("created_at", { ascending: false });
+      .eq("user_id", user!.id);
 
     if (error) throw error;
-    return data || [];
+
+    const total =
+      transfers?.reduce((sum, t) => {
+        return t.type === "income"
+          ? sum + Number(t.amount)
+          : sum - Number(t.amount);
+      }, 0) ?? 0;
+
+    return {
+      count: transfers?.length ?? 0,
+      total,
+    };
   },
   enabled: !!user,
 });
