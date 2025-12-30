@@ -55,29 +55,32 @@ export default function Records() {
   const { user } = useAuth();
 
   // Fetch transfers count and total - EXCLUDE fixed number transfers (they are separate entities)
-  const { data: transfersData } = useQuery({
-    queryKey: ["records-transfers-summary", user?.id],
-    queryFn: async () => {
-      // Only get general transfers (no fixed_number_id)
-      const { data: transfers, error } = await supabase
-        .from("transfers")
-        .select("amount, type")
-        .eq("is_archived", false)
-        .is("fixed_number_id", null);
-      
-      if (error) throw error;
+const { data: transfers = [] } = useQuery({
+  queryKey: ["transfers", user?.id],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("transfers")
+      .select("*")
+      .eq("is_archived", false)
+      .order("created_at", { ascending: false });
 
-      const transfersTotal = transfers?.reduce((sum, t) => {
-        return t.type === "income" ? sum + Number(t.amount) : sum - Number(t.amount);
-      }, 0) || 0;
+    if (error) throw error;
+    return data || [];
+  },
+  enabled: !!user,
+});
 
-      return {
-        count: transfers?.length || 0,
-        total: transfersTotal,
-      };
-    },
-    enabled: !!user,
-  });
+const transfersCount = transfers.length;
+
+const transfersTotal = transfers.reduce((sum, t) => {
+  const amount = Number(t.amount) || 0;
+  return t.type === "income" ? sum + amount : sum - amount;
+}, 0);
+
+const transfersProfit = transfers.reduce(
+  (sum, t) => sum + (Number(t.profit) || 0),
+  0
+);
 
   // Fetch phone numbers summary (independent entities)
   const { data: phoneNumbersData } = useQuery({
