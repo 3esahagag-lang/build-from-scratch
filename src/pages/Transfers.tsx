@@ -213,27 +213,21 @@ const { data: fixedNumbers, error, isLoading } = useQuery({
 
     
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage"] });
-      queryClient.invalidateQueries({ queryKey: ["transfers"] });
-      queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["today-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["phone-number-transfers"] });
-      toast({ title: "تم تسجيل التحويل على الرقم بنجاح" });
-      setExpandedNumberId(null);
-    },
-    onError: (error: Error) => {
-      const errorMessage = error.message || "";
-      if (errorMessage.includes("LIMIT_EXCEEDED")) {
-        const arabicMessage = errorMessage.split("LIMIT_EXCEEDED:")[1] || "تم تجاوز الحد الشهري للتحويلات";
-        toast({ 
-          title: "تجاوز الحد الشهري",
-          description: arabicMessage,
-          variant: "destructive" 
-        });
-      } else {
-        toast({ title: "حدث خطأ", variant: "destructive" });
-      }
-    },
+  // Dashboard
+  queryClient.invalidateQueries({ queryKey: ["transfers"] });
+  queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
+  queryClient.invalidateQueries({ queryKey: ["today-stats"] });
+
+  // Fixed number pages
+  queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage"] });
+  queryClient.invalidateQueries({ queryKey: ["fixed-number-transfers"] });
+
+  // Records
+  queryClient.invalidateQueries({ queryKey: ["phone-number-transfers"] });
+
+  toast({ title: "تم تسجيل التحويل على الرقم بنجاح" });
+  setExpandedNumberId(null);
+},
     
     const addFixedNumber = useMutation({
   mutationFn: async () => {
