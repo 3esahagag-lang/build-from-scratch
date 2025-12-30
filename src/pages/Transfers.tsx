@@ -225,7 +225,9 @@ const { data: monthlyUsage } = useQuery({
    
       
   // Records
-  queryClient.invalidateQueries({ queryKey: ["phone-number-transfers"] });
+  queryClient.invalidateQueries({ queryKey: ["phone-number-transfers"],
+  exact: false,
+});
 
   toast({ title: "تم تسجيل التحويل على الرقم بنجاح" });
   setExpandedNumberId(null);
