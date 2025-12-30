@@ -85,36 +85,33 @@ const { data: fixedNumbers, error, isLoading } = useQuery({
       if (fixedError) throw fixedError;
       
       // Get from transfers table (new - with fixed_number_id)
-      const { data: transfersData, error: transfersError } = await supabase
-        .from("transfers")
-        .select("fixed_number_id, amount")
-        .not("fixed_number_id", "is", null)
-        .eq("is_archived", false)
-        .gte("created_at", startOfMonth.toISOString());
+      // ✅ Monthly usage — SINGLE SOURCE OF TRUTH
+const { data: monthlyUsage } = useQuery({
+  queryKey: ["fixed-number-monthly-usage", user?.id],
+  enabled: !!user,
+  queryFn: async () => {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
 
-      if (transfersError) throw transfersError;
-      
-      const usage: Record<string, number> = {};
-      
-      // Add from fixed_number_transfers
-      fixedData?.forEach(t => {
-        if (t.fixed_number_id) {
-          usage[t.fixed_number_id] = (usage[t.fixed_number_id] || 0) + Number(t.amount);
-        }
-      });
-  
-      
-      // Add from transfers table
-      transfersData?.forEach(t => {
-        if (t.fixed_number_id) {
-          usage[t.fixed_number_id] = (usage[t.fixed_number_id] || 0) + Number(t.amount);
-        }
-      });
-      
-      return usage;
-    },
-    enabled: !!user,
-  });
+    const { data, error } = await supabase
+      .from("transfers")
+      .select("fixed_number_id, amount")
+      .not("fixed_number_id", "is", null)
+      .eq("is_archived", false)
+      .gte("created_at", startOfMonth.toISOString());
+
+    if (error) throw error;
+
+    const usage: Record<string, number> = {};
+    data?.forEach(t => {
+      usage[t.fixed_number_id] =
+        (usage[t.fixed_number_id] || 0) + Number(t.amount);
+    });
+
+    return usage;
+  },
+});
 
   // Fetch transfer summary (count, total amount, total profit)
   const { data: transferSummary } = useQuery({
