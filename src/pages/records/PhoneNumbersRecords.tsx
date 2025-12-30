@@ -71,20 +71,21 @@ export default function PhoneNumbersRecords() {
      SINGLE SOURCE OF TRUTH
   =============================== */
   const { data: numberTransfers = [] } = useQuery({
-    queryKey: ["phone-number-transfers", selectedNumberId],
-    enabled: !!selectedNumberId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transfers")
-        .select("id, amount, notes, created_at, profit, fixed_number_id")
-        .eq("fixed_number_id", selectedNumberId)
-        .eq("is_archived", false)
-        .order("created_at", { ascending: false });
+  queryKey: ["phone-number-transfers", selectedNumberId, user?.id],
+  enabled: !!selectedNumberId && !!user?.id,
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("transfers")
+      .select("id, amount, notes, created_at, profit, fixed_number_id")
+      .eq("user_id", user!.id)          // ✅ السطر الحاسم
+      .eq("fixed_number_id", selectedNumberId)
+      .eq("is_archived", false)
+      .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      return data as Transfer[];
-    },
-  });
+    if (error) throw error;
+    return data as Transfer[];
+  },
+});
 
   /* ===============================
      Transfer counts per number
