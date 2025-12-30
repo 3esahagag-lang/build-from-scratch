@@ -184,29 +184,34 @@ const { data: fixedNumbers, error, isLoading } = useQuery({
 
   // Add fixed number transfer mutation - using transfers table to support profit
   const addFixedNumberTransfer = useMutation({
-    mutationFn: async ({ 
-      fixedNumberId, 
-      transferAmount, 
-      transferProfit,
-      transferNotes 
-    }: { 
-      fixedNumberId: string; 
-      transferAmount: number; 
-      transferProfit?: number;
-      transferNotes?: string;
-    }) => {
-      // Insert into transfers table (has profit field) with fixed_number_id
-      const { error } = await supabase.from("transfers").insert({
+  mutationFn: async ({
+    fixedNumberId,
+    transferAmount,
+    transferProfit,
+    transferNotes,
+  }: {
+    fixedNumberId: string;
+    transferAmount: number;
+    transferProfit?: number;
+    transferNotes?: string;
+  }) => {
+    const { error } = await supabase
+      .from("transfers")
+      .insert({
         user_id: user!.id,
         fixed_number_id: fixedNumberId,
         amount: transferAmount,
-        profit: transferProfit || 0,
+        profit: transferProfit ?? 0,
         type: "income",
-        notes: transferNotes || null,
+        notes: transferNotes ?? null,
         is_archived: false,
       });
-      if (error) throw error;
-    },
+
+    if (error) throw error;
+  },
+});
+
+    
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage"] });
       queryClient.invalidateQueries({ queryKey: ["transfers"] });
