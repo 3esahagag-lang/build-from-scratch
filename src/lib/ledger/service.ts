@@ -297,9 +297,10 @@ export async function getLedgerSummary(userId: string): Promise<{
   const today = new Date().toISOString().split("T")[0];
 
   const { data, error } = await supabase
-    .from("ledger_entries")
-    .select("status, created_at");
-
+  .from("ledger_entries")
+  .select("status, created_at")
+  .eq("user_id", userId);
+  
   if (error) {
     throw new LedgerError("Failed to get ledger summary", "DB_ERROR", error);
   }
