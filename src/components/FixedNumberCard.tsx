@@ -114,8 +114,6 @@ const handleSaveNumber = () => {
   setManageOpen(false);
 };
 
-   
-  };
 
   const handleSaveLimit = () => {
     if (onUpdate) {
