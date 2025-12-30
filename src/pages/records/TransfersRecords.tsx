@@ -19,7 +19,6 @@ export default function TransfersRecords() {
       .select("*")
       .eq("user_id", user.id)
       .eq("is_archived", false)
-      .is("fixed_number_id", null)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
