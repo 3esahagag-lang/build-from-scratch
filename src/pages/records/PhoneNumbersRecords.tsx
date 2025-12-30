@@ -92,28 +92,26 @@ const { data: numberTransfers = [] } = useQuery({
      Transfer counts per number
   =============================== */
   const { data: transferCounts } = useQuery({
-    queryKey: ["phone-numbers-transfer-counts", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transfers")
-        .select("fixed_number_id")
-        .eq("is_archived", false)
-        .not("fixed_number_id", "is", null);
+  queryKey: ["phone-numbers-transfer-counts", user?.id],
+  enabled: !!user,
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("fixed_number_transfers")
+      .select("fixed_number_id");
 
-      if (error) throw error;
+    if (error) throw error;
 
-      const counts: Record<string, number> = {};
-      data?.forEach((t) => {
-        if (t.fixed_number_id) {
-          counts[t.fixed_number_id] =
-            (counts[t.fixed_number_id] || 0) + 1;
-        }
-      });
+    const counts: Record<string, number> = {};
+    data?.forEach((t) => {
+      if (t.fixed_number_id) {
+        counts[t.fixed_number_id] =
+          (counts[t.fixed_number_id] || 0) + 1;
+      }
+    });
 
-      return counts;
-    },
-  });
+    return counts;
+  },
+});
 
   const selectedNumber = phoneNumbers?.find(
     (n) => n.id === selectedNumberId
