@@ -11,10 +11,6 @@ import {
   ArrowRight,
   Phone,
   Settings,
-  Pencil,
-  Trash2,
-  Calendar,
-  CheckCircle,
 } from "lucide-react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -25,19 +21,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 export default function FixedNumberDetails() {
@@ -47,8 +32,6 @@ export default function FixedNumberDetails() {
   const queryClient = useQueryClient();
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [disableDialogOpen, setDisableDialogOpen] = useState(false);
 
   const [editName, setEditName] = useState("");
   const [editPhone, setEditPhone] = useState("");
@@ -73,7 +56,7 @@ export default function FixedNumberDetails() {
   });
 
   /* ===============================
-     Fetch transfers for this fixed number
+     Fetch transfers for this fixed number - from transfers table only
   =============================== */
   const { data: transfers = [], isLoading: transfersLoading } = useQuery({
     queryKey: ["fixed-number-transfers", id, user?.id],
@@ -94,10 +77,10 @@ export default function FixedNumberDetails() {
 
 
   /* ===============================
-     Monthly usage
+     Monthly usage - calculated from transfers table
   =============================== */
   const monthlyUsage = (() => {
-  if (!transfers || transfers.length === 0) return 0;
+    if (!transfers || transfers.length === 0) return 0;
 
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
@@ -134,7 +117,6 @@ export default function FixedNumberDetails() {
       queryClient.invalidateQueries({ queryKey: ["fixed-numbers"] });
       toast.success("تم تحديث البيانات");
       setEditDialogOpen(false);
-      setDisableDialogOpen(false);
     },
     onError: () => toast.error("فشل التحديث"),
   });

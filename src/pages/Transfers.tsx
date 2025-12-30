@@ -151,7 +151,7 @@ export default function Transfers() {
     },
   });
 
-  // Add fixed number transfer mutation
+  // Add fixed number transfer mutation - inserts into transfers table with fixed_number_id
   const addFixedNumberTransfer = useMutation({
     mutationFn: async ({
       fixedNumberId,
@@ -183,7 +183,8 @@ export default function Transfers() {
       queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
       queryClient.invalidateQueries({ queryKey: ["today-stats"] });
       queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage", user?.id] });
-      queryClient.invalidateQueries({ queryKey: ["phone-number-transfers"] });
+      queryClient.invalidateQueries({ queryKey: ["phone-numbers-usage"] });
+      queryClient.invalidateQueries({ queryKey: ["records-phone-numbers-summary"] });
 
       toast({ title: "تم تسجيل التحويل على الرقم بنجاح" });
       setExpandedNumberId(null);
@@ -459,7 +460,7 @@ export default function Transfers() {
                   <FixedNumberCard
                     key={fn.id}
                     id={fn.id}
-                    phoneNumber={fn.phone_number}
+                    phoneNumber={fn.phone_number || ""}
                     name={fn.name}
                     used={used}
                     limit={limit}
@@ -497,98 +498,67 @@ export default function Transfers() {
               )}
             </div>
           ) : (
-            <div className="text-center py-6 text-muted-foreground text-sm notebook-paper rounded-xl">
-              <Phone className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-              <p>لا توجد أرقام مسجلة</p>
-              <p className="text-xs mt-1">أضف رقماً لتسجيل التحويلات عليه</p>
+            <div className="notebook-paper p-6 text-center text-muted-foreground">
+              <Phone className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>لا توجد أرقام ثابتة</p>
+              <p className="text-sm">أضف رقماً لبدء تتبع التحويلات</p>
             </div>
           )}
         </div>
 
-        {/* Divider */}
-        <div className="relative py-4">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-border"></div>
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-3 text-muted-foreground">أو سجّل تحويل عادي</span>
-          </div>
-        </div>
-
         {/* Regular Transfer Form */}
-        <form onSubmit={handleSubmitRegularTransfer} className="space-y-4 animate-slide-up" style={{ animationDelay: "100ms" }}>
-          <div className="notebook-paper p-4 space-y-4">
-            <h3 className="font-bold text-foreground flex items-center gap-2">
-              <ArrowLeftRight className="h-4 w-4 text-primary" />
-              تحويل بدون رقم ثابت
-            </h3>
-            
+        <div className="space-y-4 animate-slide-up" style={{ animationDelay: "75ms" }}>
+          <h2 className="section-title">تحويل عام</h2>
+          
+          <form onSubmit={handleSubmitRegularTransfer} className="notebook-paper p-4 space-y-4">
             <div className="space-y-2">
-              <Label>المبلغ</Label>
+              <Label>المبلغ *</Label>
               <Input
                 type="number"
                 placeholder="0"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="text-2xl h-14 text-center"
                 dir="ltr"
+                className="text-center text-lg"
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                الربح
-                <span className="text-xs text-muted-foreground">(اختياري)</span>
-              </Label>
+              <Label>الربح (اختياري)</Label>
               <Input
                 type="number"
                 placeholder="0"
                 value={profit}
                 onChange={(e) => setProfit(e.target.value)}
-                className="text-lg h-12 text-center"
                 dir="ltr"
               />
-              {profit && parseFloat(profit) > 0 && (
-                <p className="text-sm text-income font-medium">
-                  الإجمالي: {(parseFloat(amount || "0") + parseFloat(profit)).toLocaleString()} جنيه
-                </p>
-              )}
             </div>
 
             <div className="space-y-2">
               <Label>ملاحظات (اختياري)</Label>
               <Textarea
-                placeholder="وصف الحركة..."
+                placeholder="أضف ملاحظة..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                rows={2}
               />
             </div>
-          </div>
 
-          <Button
-            type="submit"
-            disabled={
-              addTransfer.isPending || 
-              isSubmitting ||
-              !isOnline ||
-              !amount ||
-              parseFloat(amount) <= 0
-            }
-            className="w-full h-14 text-lg action-button bg-income hover:bg-income/90"
-          >
-            {(addTransfer.isPending || isSubmitting) ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin ml-2" />
-                جاري الحفظ...
-              </>
-            ) : !isOnline ? (
-              "لا يوجد اتصال"
-            ) : (
-              "تسجيل التحويل"
-            )}
-          </Button>
-        </form>
+            <Button
+              type="submit"
+              disabled={isSubmitting || addTransfer.isPending || !amount}
+              className="w-full"
+            >
+              {isSubmitting || addTransfer.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin ml-2" />
+                  جاري الحفظ...
+                </>
+              ) : (
+                "تسجيل التحويل"
+              )}
+            </Button>
+          </form>
+        </div>
       </div>
     </Layout>
   );

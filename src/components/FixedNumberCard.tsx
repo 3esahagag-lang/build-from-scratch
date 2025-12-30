@@ -466,71 +466,54 @@ const handleSaveNumber = () => {
                   placeholder="0"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="text-xl h-12 text-center"
                   dir="ltr"
-                  autoFocus
+                  className={`text-center ${wouldExceedLimit ? "border-destructive" : ""}`}
+                  onClick={(e) => e.stopPropagation()}
                 />
+                {wouldExceedLimit && (
+                  <p className="text-xs text-destructive">
+                    سيتجاوز الحد الشهري! المتبقي: {remaining.toLocaleString()} ج.م
+                  </p>
+                )}
               </div>
 
               {/* Profit */}
               <div className="space-y-1">
-                <Label className="text-sm flex items-center gap-2">
-                  الربح
-                  <span className="text-xs text-muted-foreground">(اختياري)</span>
-                </Label>
+                <Label className="text-sm">الربح (اختياري)</Label>
                 <Input
                   type="number"
                   placeholder="0"
                   value={profit}
                   onChange={(e) => setProfit(e.target.value)}
-                  className="text-lg h-10 text-center"
                   dir="ltr"
+                  className="text-center"
+                  onClick={(e) => e.stopPropagation()}
                 />
               </div>
 
               {/* Notes */}
               <div className="space-y-1">
-                <Label className="text-sm flex items-center gap-2">
-                  ملاحظات
-                  <span className="text-xs text-muted-foreground">(اختياري)</span>
-                </Label>
+                <Label className="text-sm">ملاحظات (اختياري)</Label>
                 <Textarea
-                  placeholder="وصف التحويل..."
+                  placeholder="أضف ملاحظة..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  className="resize-none"
+                  className="min-h-[60px]"
+                  onClick={(e) => e.stopPropagation()}
                 />
               </div>
 
-              {/* Limit warning */}
-              {wouldExceedLimit && parseFloat(amount) > 0 && (
-                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
-                  <p className="font-medium">تجاوز الحد الشهري!</p>
-                  <p className="text-xs mt-1">
-                    المتبقي: {remaining.toLocaleString()} ج.م فقط
-                  </p>
-                </div>
-              )}
-
-              {/* Submit button */}
-              <Button
+              {/* Submit */}
+              <Button 
                 type="submit"
-                disabled={
-                  !amount || 
-                  parseFloat(amount) <= 0 || 
-                  wouldExceedLimit || 
-                  isSubmitting
-                }
-                className="w-full h-12 text-base bg-income hover:bg-income/90"
+                className="w-full bg-income hover:bg-income/90 text-income-foreground"
+                disabled={!amount || parseFloat(amount) <= 0 || wouldExceedLimit || isSubmitting}
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="h-5 w-5 animate-spin ml-2" />
+                    <Loader2 className="h-4 w-4 animate-spin ml-2" />
                     جاري الحفظ...
                   </>
-                ) : wouldExceedLimit ? (
-                  "تجاوز الحد الشهري"
                 ) : (
                   "تسجيل التحويل"
                 )}
@@ -546,14 +529,14 @@ const handleSaveNumber = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>تعطيل الرقم؟</AlertDialogTitle>
             <AlertDialogDescription>
-              سيتم إيقاف التحويلات على هذا الرقم. الرقم سيبقى ظاهراً في السجلات.
+              سيتم إيقاف جميع التحويلات على هذا الرقم. يمكنك إعادة تفعيله لاحقاً.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-row-reverse gap-2">
+          <AlertDialogFooter>
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDisable}
-              className="bg-destructive hover:bg-destructive/90"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               تعطيل
             </AlertDialogAction>

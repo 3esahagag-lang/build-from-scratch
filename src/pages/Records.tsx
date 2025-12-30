@@ -54,51 +54,60 @@ function RecordCard({ icon, title, badges, to }: RecordCardProps) {
 export default function Records() {
   const { user } = useAuth();
 
-  // Fetch transfers count and total - EXCLUDE fixed number transfers (they are separate entities)
-const { data: transfersData } = useQuery({
-  queryKey: ["records-transfers-summary", user?.id],
-  queryFn: async () => {
-    const { data: transfers, error } = await supabase
-      .from("transfers")
-      .select("amount, type")
-      .eq("is_archived", false)
-      .eq("user_id", user!.id);
+  // Fetch transfers count and total
+  const { data: transfersData } = useQuery({
+    queryKey: ["records-transfers-summary", user?.id],
+    queryFn: async () => {
+      const { data: transfers, error } = await supabase
+        .from("transfers")
+        .select("amount, type")
+        .eq("is_archived", false)
+        .eq("user_id", user!.id);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    const total =
-      transfers?.reduce((sum, t) => {
-        return t.type === "income"
-          ? sum + Number(t.amount)
-          : sum - Number(t.amount);
-      }, 0) ?? 0;
+      const total =
+        transfers?.reduce((sum, t) => {
+          return t.type === "income"
+            ? sum + Number(t.amount)
+            : sum - Number(t.amount);
+        }, 0) ?? 0;
 
-    return {
-      count: transfers?.length ?? 0,
-      total,
-    };
-  },
-  enabled: !!user,
-});
+      return {
+        count: transfers?.length ?? 0,
+        total,
+      };
+    },
+    enabled: !!user,
+  });
 
-  // Fetch phone numbers summary (independent entities)
+  // Fetch phone numbers summary - aggregated from transfers table
   const { data: phoneNumbersData } = useQuery({
     queryKey: ["records-phone-numbers-summary", user?.id],
     queryFn: async () => {
-      const [numbers, transfers] = await Promise.all([
-        supabase
-          .from("fixed_numbers")
-          .select("id, is_disabled, monthly_limit"),
-        supabase
-          .from("fixed_number_transfers")
-          .select("amount"),
-      ]);
+      // Fetch phone numbers
+      const { data: numbers, error: numbersError } = await supabase
+        .from("fixed_numbers")
+        .select("id, is_disabled")
+        .eq("user_id", user!.id);
 
-      const activeCount = numbers.data?.filter(n => !n.is_disabled).length || 0;
-      const totalTransferred = transfers.data?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+      if (numbersError) throw numbersError;
+
+      // Fetch transfers linked to phone numbers from transfers table
+      const { data: transfers, error: transfersError } = await supabase
+        .from("transfers")
+        .select("amount, fixed_number_id")
+        .eq("user_id", user!.id)
+        .not("fixed_number_id", "is", null)
+        .eq("is_archived", false);
+
+      if (transfersError) throw transfersError;
+
+      const activeCount = numbers?.filter(n => !n.is_disabled).length || 0;
+      const totalTransferred = transfers?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
 
       return {
-        count: numbers.data?.length || 0,
+        count: numbers?.length || 0,
         activeCount,
         totalTransferred,
       };
@@ -114,8 +123,12 @@ const { data: transfersData } = useQuery({
         supabase
           .from("inventory_items")
           .select("quantity")
+          .eq("user_id", user!.id)
           .eq("is_archived", false),
-        supabase.from("inventory_logs").select("id"),
+        supabase
+          .from("inventory_logs")
+          .select("id")
+          .eq("user_id", user!.id),
       ]);
 
       const totalQuantity = items.data?.reduce((sum, i) => sum + (i.quantity || 0), 0) || 0;
@@ -136,6 +149,7 @@ const { data: transfersData } = useQuery({
       const { data } = await supabase
         .from("debts")
         .select("amount, type, is_paid")
+        .eq("user_id", user!.id)
         .eq("is_archived", false);
 
       const owedToMe = data
