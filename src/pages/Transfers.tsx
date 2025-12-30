@@ -97,32 +97,34 @@ export default function Transfers() {
   });
 
   // Fetch transfer summary (count, total amount, total profit)
-  const { data: transferSummary } = useQuery({
-    queryKey: ["transfers-summary", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data: transfers, error } = await supabase
-        .from("transfers")
-        .select("amount, profit, type")
-        .eq("user_id", user!.id)
-        .eq("is_archived", false);
-      
-      if (error) throw error;
+ const { data: transferSummary } = useQuery({
+  queryKey: ["transfers-summary", user?.id],
+  enabled: !!user,
+  queryFn: async () => {
+    const { data: transfers, error } = await supabase
+      .from("transfers")
+      .select("amount, profit, fixed_number_id")
+      .eq("user_id", user!.id)
+      .eq("is_archived", false)
+      .not("fixed_number_id", "is", null);
 
-      const totalCount = transfers?.length || 0;
-      const totalIncome = transfers?.reduce((sum, t) => {
-        return sum + (t.type === "income" ? Number(t.amount) : 0);
-      }, 0) || 0;
-      
-      const totalProfit = transfers?.reduce((sum, t) => sum + (Number(t.profit) || 0), 0) || 0;
+    if (error) throw error;
 
-      return {
-        count: totalCount,
-        totalIncome,
-        totalProfit,
-      };
-    },
-  });
+    const totalCount = transfers?.length || 0;
+
+    const totalIncome =
+      transfers?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+
+    const totalProfit =
+      transfers?.reduce((sum, t) => sum + Number(t.profit || 0), 0) || 0;
+
+    return {
+      count: totalCount,
+      totalIncome,
+      totalProfit,
+    };
+  },
+});
 
   // Add regular transfer mutation
   const addTransfer = useMutation({
@@ -152,47 +154,57 @@ export default function Transfers() {
   });
 
   // Add fixed number transfer mutation - inserts into transfers table with fixed_number_id
-  const addFixedNumberTransfer = useMutation({
-    mutationFn: async ({
-      fixedNumberId,
-      transferAmount,
-      transferProfit,
-      transferNotes,
-    }: {
-      fixedNumberId: string;
-      transferAmount: number;
-      transferProfit?: number;
-      transferNotes?: string;
-    }) => {
-      const { error } = await supabase
-        .from("transfers")
-        .insert({
-          user_id: user!.id,
-          fixed_number_id: fixedNumberId,
-          amount: transferAmount,
-          profit: transferProfit ?? 0,
-          type: "income",
-          notes: transferNotes ?? null,
-          is_archived: false,
-        });
+const addFixedNumberTransfer = useMutation({
+  mutationFn: async ({
+    fixedNumberId,
+    transferAmount,
+    transferProfit,
+    transferNotes,
+  }: {
+    fixedNumberId: string;
+    transferAmount: number;
+    transferProfit?: number;
+    transferNotes?: string;
+  }) => {
+    const { error } = await supabase
+      .from("transfers")
+      .insert({
+        user_id: user!.id,
+        fixed_number_id: fixedNumberId,
+        amount: transferAmount,
+        profit: transferProfit ?? 0,
+        type: "income",
+        notes: transferNotes ?? null,
+        is_archived: false,
+      });
 
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transfers"] });
-      queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["today-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage", user?.id] });
-      queryClient.invalidateQueries({ queryKey: ["phone-numbers-usage"] });
-      queryClient.invalidateQueries({ queryKey: ["records-phone-numbers-summary"] });
+    if (error) throw error;
+  },
 
-      toast({ title: "تم تسجيل التحويل على الرقم بنجاح" });
-      setExpandedNumberId(null);
-    },
-    onError: () => {
-      toast({ title: "حدث خطأ", variant: "destructive" });
-    },
-  });
+  onSuccess: () => {
+    // إعادة تحميل التحويلات العامة
+    queryClient.invalidateQueries({
+      queryKey: ["transfers"],
+    });
+
+    // إعادة تحميل ملخص التحويلات
+    queryClient.invalidateQueries({
+      queryKey: ["transfers-summary", user?.id],
+    });
+
+    // إعادة تحميل استهلاك الأرقام الثابتة
+    queryClient.invalidateQueries({
+      queryKey: ["fixed-number-monthly-usage", user?.id],
+    });
+
+    toast({ title: "تم تسجيل التحويل على الرقم بنجاح" });
+    setExpandedNumberId(null);
+  },
+
+  onError: () => {
+    toast({ title: "حدث خطأ", variant: "destructive" });
+  },
+});
 
   // Add fixed number mutation
   const addFixedNumber = useMutation({
