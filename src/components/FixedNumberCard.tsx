@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import {
   Drawer,
   DrawerContent,
@@ -55,6 +56,7 @@ export default function FixedNumberCard({
   onSubmitTransfer,
   onToggleExpand,
 }: FixedNumberCardProps) {
+  const { toast } = useToast();
   const [manageOpen, setManageOpen] = useState(false);
   const [editMode, setEditMode] = useState<"number" | "limit" | null>(null);
   const [editPhoneNumber, setEditPhoneNumber] = useState(phoneNumber);

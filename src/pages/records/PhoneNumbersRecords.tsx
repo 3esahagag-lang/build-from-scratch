@@ -2,18 +2,8 @@ import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Phone,
-  ChevronLeft,
-  Hash,
-  Banknote,
-  Calendar,
-  FileText,
-  TrendingUp,
-  ArrowUpCircle,
-  Percent,
-} from "lucide-react";
-import { useState } from "react";
+import { ChevronLeft } from "lucide-react";
+import { useState, useMemo } from "react";
 
 interface PhoneNumber {
   id: string;
@@ -28,8 +18,8 @@ interface Transfer {
   amount: number;
   notes: string | null;
   created_at: string;
-  profit?: number | null;
-  fixed_number_id?: string | null;
+  profit: number | null;
+  fixed_number_id: string | null;
 }
 
 function formatDate(date: string): string {
@@ -48,9 +38,7 @@ export default function PhoneNumbersRecords() {
   const { user } = useAuth();
   const [selectedNumberId, setSelectedNumberId] = useState<string | null>(null);
 
-  /* ===============================
-     Fetch phone numbers
-  =============================== */
+  // Fetch phone numbers
   const { data: phoneNumbers } = useQuery({
     queryKey: ["phone-numbers-list", user?.id],
     enabled: !!user,
@@ -66,52 +54,46 @@ export default function PhoneNumbersRecords() {
     },
   });
 
-  /* ===============================
-     Fetch transfers for selected number
-     SINGLE SOURCE OF TRUTH
-  =============================== */
+  // SINGLE SOURCE OF TRUTH: Fetch all transfers with fixed_number_id from transfers table
+  const { data: allTransfers = [] } = useQuery({
+    queryKey: ["phone-numbers-usage", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transfers")
+        .select("id, amount, notes, created_at, profit, fixed_number_id")
+        .eq("user_id", user!.id)
+        .not("fixed_number_id", "is", null)
+        .eq("is_archived", false)
+        .order("created_at", { ascending: false });
 
-const { data: numberTransfers = [] } = useQuery({
-  queryKey: ["phone-number-transfers", selectedNumberId, user?.id],
-  enabled: !!selectedNumberId && !!user?.id,
-  queryFn: async () => {
-    const { data, error } = await supabase
-      .from("transfers")
-      .select("id, amount, notes, created_at, profit, fixed_number_id")
-      .eq("user_id", user!.id)
-      .eq("fixed_number_id", selectedNumberId)
-      .eq("is_archived", false)
-      .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Transfer[];
+    },
+  });
 
-    if (error) throw error;
-    return data as Transfer[];
-  },
-});
-  
-  /* ===============================
-     Transfer counts per number
-  =============================== */
-  const { data: transferCounts } = useQuery({
-  queryKey: ["phone-numbers-transfer-counts", user?.id],
-  enabled: !!user,
-  queryFn: async () => {
-    const { data, error } = await supabase
-      .from("fixed_number_transfers")
-      .select("fixed_number_id");
-
-    if (error) throw error;
-
-    const counts: Record<string, number> = {};
-    data?.forEach((t) => {
+  // Client-side aggregation: count and sum per fixed_number_id
+  const transferStats = useMemo(() => {
+    const stats: Record<string, { count: number; totalAmount: number }> = {};
+    
+    allTransfers.forEach((t) => {
       if (t.fixed_number_id) {
-        counts[t.fixed_number_id] =
-          (counts[t.fixed_number_id] || 0) + 1;
+        if (!stats[t.fixed_number_id]) {
+          stats[t.fixed_number_id] = { count: 0, totalAmount: 0 };
+        }
+        stats[t.fixed_number_id].count += 1;
+        stats[t.fixed_number_id].totalAmount += Number(t.amount);
       }
     });
 
-    return counts;
-  },
-});
+    return stats;
+  }, [allTransfers]);
+
+  // Filter transfers for selected number
+  const numberTransfers = useMemo(() => {
+    if (!selectedNumberId) return [];
+    return allTransfers.filter((t) => t.fixed_number_id === selectedNumberId);
+  }, [allTransfers, selectedNumberId]);
 
   const selectedNumber = phoneNumbers?.find(
     (n) => n.id === selectedNumberId
@@ -148,26 +130,37 @@ const { data: numberTransfers = [] } = useQuery({
         {/* Numbers list */}
         {!selectedNumberId && (
           <div className="space-y-3">
-            {phoneNumbers?.map((number) => (
-              <button
-                key={number.id}
-                onClick={() => setSelectedNumberId(number.id)}
-                className="w-full notebook-paper p-4 text-right"
-              >
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="font-bold">{number.name}</h3>
-                    <p dir="ltr" className="text-sm text-muted-foreground">
-                      {number.phone_number}
-                    </p>
-                    <span className="text-xs">
-                      {transferCounts?.[number.id] || 0} تحويل
-                    </span>
+            {phoneNumbers?.map((number) => {
+              const stats = transferStats[number.id];
+              const count = stats?.count || 0;
+              const totalAmount = stats?.totalAmount || 0;
+
+              return (
+                <button
+                  key={number.id}
+                  onClick={() => setSelectedNumberId(number.id)}
+                  className="w-full notebook-paper p-4 text-right"
+                >
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-bold">{number.name}</h3>
+                      <p dir="ltr" className="text-sm text-muted-foreground">
+                        {number.phone_number}
+                      </p>
+                      <span className="text-xs">
+                        {count} تحويل
+                        {totalAmount > 0 && (
+                          <span className="mr-2 text-muted-foreground">
+                            ({totalAmount.toLocaleString()} ج.م)
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <ChevronLeft />
                   </div>
-                  <ChevronLeft />
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -185,11 +178,11 @@ const { data: numberTransfers = [] } = useQuery({
                 <div className="flex justify-between">
                   <div>
                     <p className="font-bold">
-                      {t.amount.toLocaleString()} ج.م
+                      {Number(t.amount).toLocaleString()} ج.م
                     </p>
                     {t.profit ? (
                       <p className="text-xs text-income">
-                        ربح: {t.profit.toLocaleString()}
+                        ربح: {Number(t.profit).toLocaleString()}
                       </p>
                     ) : null}
                     {t.notes && (

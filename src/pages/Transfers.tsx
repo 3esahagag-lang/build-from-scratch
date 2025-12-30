@@ -51,105 +51,77 @@ export default function Transfers() {
   const [expandedNumberId, setExpandedNumberId] = useState<string | null>(null);
 
   // Fetch fixed numbers
-  // Fetch fixed numbers (FIXED)
-const { data: fixedNumbers, error, isLoading } = useQuery({
-  queryKey: ["fixed-numbers", user?.id],
-  enabled: !!user?.id,
-  queryFn: async () => {
-    const { data, error } = await supabase
-      .from("fixed_numbers")
-      .select("*")
-      .eq("user_id", user.id);
+  const { data: fixedNumbers, isLoading } = useQuery({
+    queryKey: ["fixed-numbers", user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("fixed_numbers")
+        .select("*")
+        .eq("user_id", user!.id);
 
-    console.log("FIXED NUMBERS RAW 👉", data, error);
+      if (error) throw error;
+      return data;
+    },
+  });
 
-    if (error) throw error;
-    return data;
-  },
-});
-
-// Fetch monthly usage for fixed numbers (from both tables)
+  // Monthly usage — SINGLE SOURCE OF TRUTH from transfers table
   const { data: monthlyUsage } = useQuery({
     queryKey: ["fixed-number-monthly-usage", user?.id],
+    enabled: !!user,
     queryFn: async () => {
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
 
-      // Get from fixed_number_transfers (legacy)
-      const { data: fixedData, error: fixedError } = await supabase
-        .from("fixed_number_transfers")
+      const { data, error } = await supabase
+        .from("transfers")
         .select("fixed_number_id, amount")
+        .eq("user_id", user!.id)
+        .not("fixed_number_id", "is", null)
+        .eq("is_archived", false)
         .gte("created_at", startOfMonth.toISOString());
 
-      if (fixedError) throw fixedError;
-      
-      // Get from transfers table (new - with fixed_number_id)
-      // ✅ Monthly usage — SINGLE SOURCE OF TRUTH
-const { data: monthlyUsage } = useQuery({
-  queryKey: ["fixed-number-monthly-usage", user?.id],
-  enabled: !!user,
-  queryFn: async () => {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+      if (error) throw error;
 
-    const { data, error } = await supabase
-      .from("transfers")
-      .select("fixed_number_id, amount")
-      .not("fixed_number_id", "is", null)
-      .eq("is_archived", false)
-      .gte("created_at", startOfMonth.toISOString());
+      const usage: Record<string, number> = {};
+      data?.forEach(t => {
+        if (t.fixed_number_id) {
+          usage[t.fixed_number_id] =
+            (usage[t.fixed_number_id] || 0) + Number(t.amount);
+        }
+      });
 
-    if (error) throw error;
-
-    const usage: Record<string, number> = {};
-    data?.forEach(t => {
-      usage[t.fixed_number_id] =
-        (usage[t.fixed_number_id] || 0) + Number(t.amount);
-    });
-
-    return usage;
-  },
-});
+      return usage;
+    },
+  });
 
   // Fetch transfer summary (count, total amount, total profit)
   const { data: transferSummary } = useQuery({
     queryKey: ["transfers-summary", user?.id],
+    enabled: !!user,
     queryFn: async () => {
-      // Get all transfers for this user
-      const { data: transfers, error: transfersError } = await supabase
+      const { data: transfers, error } = await supabase
         .from("transfers")
         .select("amount, profit, type")
+        .eq("user_id", user!.id)
         .eq("is_archived", false);
       
-      if (transfersError) throw transfersError;
+      if (error) throw error;
 
-      // Get fixed number transfers  
-      const { data: fixedTransfers, error: fixedError } = await supabase
-        .from("fixed_number_transfers")
-        .select("amount");
-      
-      if (fixedError) throw fixedError;
-
-      // Calculate totals
-      const totalCount = (transfers?.length || 0) + (fixedTransfers?.length || 0);
+      const totalCount = transfers?.length || 0;
       const totalIncome = transfers?.reduce((sum, t) => {
         return sum + (t.type === "income" ? Number(t.amount) : 0);
       }, 0) || 0;
-      
-      // Add fixed number transfers to income (they're always income)
-      const fixedTotal = fixedTransfers?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
       
       const totalProfit = transfers?.reduce((sum, t) => sum + (Number(t.profit) || 0), 0) || 0;
 
       return {
         count: totalCount,
-        totalIncome: totalIncome + fixedTotal,
+        totalIncome,
         totalProfit,
       };
     },
-    enabled: !!user,
   });
 
   // Add regular transfer mutation
@@ -159,7 +131,7 @@ const { data: monthlyUsage } = useQuery({
         user_id: user!.id,
         amount: parseFloat(amount),
         profit: parseFloat(profit) || 0,
-        type: "income", // Always income now
+        type: "income",
         notes: notes || null,
         fixed_number_id: null,
       });
@@ -179,101 +151,84 @@ const { data: monthlyUsage } = useQuery({
     },
   });
 
-  // Add fixed number transfer mutation - using transfers table to support profit
+  // Add fixed number transfer mutation
   const addFixedNumberTransfer = useMutation({
-  mutationFn: async ({
-    fixedNumberId,
-    transferAmount,
-    transferProfit,
-    transferNotes,
-  }: {
-    fixedNumberId: string;
-    transferAmount: number;
-    transferProfit?: number;
-    transferNotes?: string;
-  }) => {
-    const { error } = await supabase
-      .from("transfers")
-      .insert({
-        user_id: user!.id,
-        fixed_number_id: fixedNumberId,
-        amount: transferAmount,
-        profit: transferProfit ?? 0,
-        type: "income",
-        notes: transferNotes ?? null,
-        is_archived: false,
-      });
+    mutationFn: async ({
+      fixedNumberId,
+      transferAmount,
+      transferProfit,
+      transferNotes,
+    }: {
+      fixedNumberId: string;
+      transferAmount: number;
+      transferProfit?: number;
+      transferNotes?: string;
+    }) => {
+      const { error } = await supabase
+        .from("transfers")
+        .insert({
+          user_id: user!.id,
+          fixed_number_id: fixedNumberId,
+          amount: transferAmount,
+          profit: transferProfit ?? 0,
+          type: "income",
+          notes: transferNotes ?? null,
+          is_archived: false,
+        });
 
-    if (error) throw error;
-  },
-});
-
-    
+      if (error) throw error;
+    },
     onSuccess: () => {
-  // Dashboard
-  queryClient.invalidateQueries({ queryKey: ["transfers"] });
-  queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
-  queryClient.invalidateQueries({ queryKey: ["today-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["transfers"] });
+      queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["today-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["phone-number-transfers"] });
 
-  // Fixed numbers usage (واحد بس)
-  queryClient.invalidateQueries({
-    queryKey: ["fixed-number-monthly-usage", user?.id],
+      toast({ title: "تم تسجيل التحويل على الرقم بنجاح" });
+      setExpandedNumberId(null);
+    },
+    onError: () => {
+      toast({ title: "حدث خطأ", variant: "destructive" });
+    },
   });
 
-  // Records
-  queryClient.invalidateQueries({
-    queryKey: ["phone-number-transfers"],
+  // Add fixed number mutation
+  const addFixedNumber = useMutation({
+    mutationFn: async () => {
+      if (!user?.id) {
+        throw new Error("User not authenticated");
+      }
+
+      const payload = {
+        user_id: user.id,
+        phone_number: newPhoneNumber,
+        name: newFixedName?.trim() || newPhoneNumber,
+        monthly_limit: Number(newFixedLimit) || 0,
+      };
+
+      const { error } = await supabase
+        .from("fixed_numbers")
+        .insert(payload);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["fixed-numbers", user?.id] });
+      setNewPhoneNumber("");
+      setNewFixedName("");
+      setNewFixedLimit("");
+      setFixedNumberDialogOpen(false);
+      toast({ title: "تم إضافة الرقم بنجاح" });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "فشل إضافة الرقم",
+        description: error.message ?? "خطأ غير معروف",
+        variant: "destructive",
+      });
+    },
   });
-
-  toast({ title: "تم تسجيل التحويل على الرقم بنجاح" });
-  setExpandedNumberId(null);
-},
-
-    
-    const addFixedNumber = useMutation({
-  mutationFn: async () => {
-    if (!user?.id) {
-      throw new Error("User not authenticated");
-    }
-
-    const payload = {
-  user_id: user.id,
-  phone_number: newPhoneNumber, // ✅ صح
-  name: newFixedName?.trim() || newPhoneNumber,
-  monthly_limit: Number(newFixedLimit) || 0,
-  };
-
-    const { error } = await supabase
-      .from("fixed_numbers")
-      .insert(payload);
-
-    if (error) {
-      console.error("Insert fixed number error:", error);
-      throw error;
-    }
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({
-  queryKey: ["fixed-numbers", user?.id],
-});
-
-    setNewPhoneNumber("");
-    setNewFixedName("");
-    setNewFixedLimit("");
-    setFixedNumberDialogOpen(false);
-
-    toast({
-      title: "تم إضافة الرقم بنجاح",
-    });
-  },
-  onError: (error: any) => {
-    toast({
-      title: "فشل إضافة الرقم",
-      description: error.message ?? "خطأ غير معروف",
-      variant: "destructive",
-    });
-  },
-});
 
   // Update fixed number mutation
   const updateFixedNumber = useMutation({
@@ -344,7 +299,6 @@ const { data: monthlyUsage } = useQuery({
       return;
     }
 
-    // Check limit
     const selectedNumber = fixedNumbers?.find(fn => fn.id === fixedNumberId);
     const currentUsage = monthlyUsage?.[fixedNumberId] || 0;
     const limit = Number(selectedNumber?.monthly_limit) || 0;
@@ -373,8 +327,8 @@ const { data: monthlyUsage } = useQuery({
   };
 
   const displayedNumbers = showAllNumbers
-  ? fixedNumbers
-  : fixedNumbers?.slice(-3);
+    ? fixedNumbers
+    : fixedNumbers?.slice(-3);
 
   return (
     <Layout>
@@ -389,7 +343,6 @@ const { data: monthlyUsage } = useQuery({
 
         {/* Summary Cards */}
         <div className="grid grid-cols-3 gap-3 animate-slide-up" style={{ animationDelay: "25ms" }}>
-          {/* Total Transfers Count */}
           <Card className="bg-card border-border">
             <CardContent className="p-3 text-center">
               <div className="flex items-center justify-center mb-1">
@@ -402,7 +355,6 @@ const { data: monthlyUsage } = useQuery({
             </CardContent>
           </Card>
 
-          {/* Total Income/Amount */}
           <Card className="bg-card border-border">
             <CardContent className="p-3 text-center">
               <div className="flex items-center justify-center mb-1">
@@ -415,7 +367,6 @@ const { data: monthlyUsage } = useQuery({
             </CardContent>
           </Card>
 
-          {/* Total Profit */}
           <Card className="bg-card border-border">
             <CardContent className="p-3 text-center">
               <div className="flex items-center justify-center mb-1">
@@ -485,14 +436,12 @@ const { data: monthlyUsage } = useQuery({
                     </p>
                   </div>
                   <Button
-                    onClick={() => {
-                     addFixedNumber.mutate();
-                     }}
-                     disabled={addFixedNumber.isPending}
-                     className="w-full"
-                     >
-                     {addFixedNumber.isPending ? "جاري الإضافة..." : "إضافة الرقم"}
-                     </Button>
+                    onClick={() => addFixedNumber.mutate()}
+                    disabled={addFixedNumber.isPending}
+                    className="w-full"
+                  >
+                    {addFixedNumber.isPending ? "جاري الإضافة..." : "إضافة الرقم"}
+                  </Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -508,19 +457,19 @@ const { data: monthlyUsage } = useQuery({
                 
                 return (
                   <FixedNumberCard
-                  key={fn.id}
-                  id={fn.id}
-                  phoneNumber={fn.phone_number}
-                  name={fn.name}
-                  used={used}
-                  limit={limit}
-                  isDisabled={isDisabled}
-                  isExpanded={expandedNumberId === fn.id}
-                  isSubmitting={addFixedNumberTransfer.isPending}
-                  onToggleExpand={(id) => setExpandedNumberId(id)}
-                  onSubmitTransfer={handleSubmitFixedNumberTransfer}
-                  onUpdate={(id, data) => updateFixedNumber.mutate({ id, data })}
-                  onDisable={(id) => disableFixedNumber.mutate(id)}
+                    key={fn.id}
+                    id={fn.id}
+                    phoneNumber={fn.phone_number}
+                    name={fn.name}
+                    used={used}
+                    limit={limit}
+                    isDisabled={isDisabled}
+                    isExpanded={expandedNumberId === fn.id}
+                    isSubmitting={addFixedNumberTransfer.isPending}
+                    onToggleExpand={(id) => setExpandedNumberId(id)}
+                    onSubmitTransfer={handleSubmitFixedNumberTransfer}
+                    onUpdate={(id, data) => updateFixedNumber.mutate({ id, data })}
+                    onDisable={(id) => disableFixedNumber.mutate(id)}
                   />
                 );
               })}

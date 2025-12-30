@@ -81,18 +81,6 @@ const { data: transfersData } = useQuery({
   enabled: !!user,
 });
 
-const transfersCount = transfers.length;
-
-const transfersTotal = transfers.reduce((sum, t) => {
-  const amount = Number(t.amount) || 0;
-  return t.type === "income" ? sum + amount : sum - amount;
-}, 0);
-
-const transfersProfit = transfers.reduce(
-  (sum, t) => sum + (Number(t.profit) || 0),
-  0
-);
-
   // Fetch phone numbers summary (independent entities)
   const { data: phoneNumbersData } = useQuery({
     queryKey: ["records-phone-numbers-summary", user?.id],
