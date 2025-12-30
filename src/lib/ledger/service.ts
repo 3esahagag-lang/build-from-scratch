@@ -33,10 +33,12 @@ export async function getLedgerEntries(
   }
 ): Promise<LedgerEntry[]> {
   // Query the ledger_entries view
+
   let query = supabase
-    .from("ledger_entries")
-    .select("*")
-    .order("created_at", { ascending: false });
+  .from("ledger_entries")
+  .select("*")
+  .eq("user_id", userId) // ← أضف السطر ده
+  .order("created_at", { ascending: false });
 
   if (options?.recordType) {
     query = query.eq("record_type", options.recordType);
