@@ -127,31 +127,49 @@ export default function Transfers() {
 });
 
   // Add regular transfer mutation
-  const addTransfer = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from("transfers").insert({
+ const addFixedNumberTransfer = useMutation({
+  mutationFn: async ({
+    fixedNumberId,
+    transferAmount,
+    transferProfit,
+    transferNotes,
+  }: {
+    fixedNumberId: string;
+    transferAmount: number;
+    transferProfit?: number;
+    transferNotes?: string;
+  }) => {
+    const { error } = await supabase
+      .from("transfers")
+      .insert({
         user_id: user!.id,
-        amount: parseFloat(amount),
-        profit: parseFloat(profit) || 0,
+        fixed_number_id: fixedNumberId,
+        amount: transferAmount,
+        profit: transferProfit ?? 0,
         type: "income",
-        notes: notes || null,
-        fixed_number_id: null,
+        notes: transferNotes ?? null,
+        is_archived: false,
       });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transfers"] });
-      queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["today-stats"] });
-      toast({ title: "تم تسجيل التحويل بنجاح" });
-      setAmount("");
-      setProfit("");
-      setNotes("");
-    },
-    onError: () => {
-      toast({ title: "حدث خطأ", variant: "destructive" });
-    },
-  });
+
+    if (error) throw error;
+  },
+
+  onSuccess: () => {
+    // 🔴 دي أهم سطور في المشروع كله
+    queryClient.invalidateQueries({ queryKey: ["transfers"] });
+    queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
+    queryClient.invalidateQueries({ queryKey: ["fixed-numbers", user?.id] });
+    queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage", user?.id] });
+    queryClient.invalidateQueries({ queryKey: ["records-phone-numbers"] });
+
+    toast({ title: "تم تسجيل التحويل على الرقم بنجاح" });
+    setExpandedNumberId(null);
+  },
+
+  onError: () => {
+    toast({ title: "حدث خطأ", variant: "destructive" });
+  },
+});
 
   // Add fixed number transfer mutation - inserts into transfers table with fixed_number_id
 const addFixedNumberTransfer = useMutation({
