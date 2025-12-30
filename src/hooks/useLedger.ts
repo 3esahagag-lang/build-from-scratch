@@ -96,8 +96,11 @@ function useInvalidateLedgerQueries() {
     queryClient.invalidateQueries({ queryKey: LEDGER_QUERY_KEYS.all });
     // Also invalidate related queries
     queryClient.invalidateQueries({ queryKey: ["transfers"] });
+    queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
     queryClient.invalidateQueries({ queryKey: ["debts"] });
     queryClient.invalidateQueries({ queryKey: ["records"] });
+    queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage"] });
+    queryClient.invalidateQueries({ queryKey: ["phone-numbers-usage"] });
   };
 }
 

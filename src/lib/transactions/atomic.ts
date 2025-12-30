@@ -71,7 +71,7 @@ export async function executeAtomic<T>(
 
 /**
  * Create a transfer with pending state, then confirm
- * Two-phase commit pattern
+ * Two-phase commit pattern - uses transfers table
  */
 export async function createPendingTransfer(
   userId: string,

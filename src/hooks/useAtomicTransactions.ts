@@ -11,6 +11,7 @@ import {
 
 /**
  * Hook for creating transfers with two-phase commit
+ * Uses transfers table directly
  */
 export function useAtomicTransfer() {
   const { user } = useAuth();
@@ -40,7 +41,10 @@ export function useAtomicTransfer() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transfers"] });
+      queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
       queryClient.invalidateQueries({ queryKey: ["ledger"] });
+      queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage"] });
+      queryClient.invalidateQueries({ queryKey: ["phone-numbers-usage"] });
       toast({
         title: "تم تسجيل التحويل",
         description: "تم حفظ التحويل بنجاح",
@@ -122,9 +126,12 @@ export function useAtomicMultiStep<T>() {
     onSuccess: () => {
       // Invalidate all financial queries
       queryClient.invalidateQueries({ queryKey: ["transfers"] });
+      queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
       queryClient.invalidateQueries({ queryKey: ["debts"] });
       queryClient.invalidateQueries({ queryKey: ["ledger"] });
       queryClient.invalidateQueries({ queryKey: ["profits"] });
+      queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage"] });
+      queryClient.invalidateQueries({ queryKey: ["phone-numbers-usage"] });
     },
     onError: (error: AtomicTransactionError) => {
       toast({

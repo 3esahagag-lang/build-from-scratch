@@ -82,6 +82,7 @@ export async function createTransaction(
 /**
  * Record a cash transfer (income or expense)
  * Capital-only transaction, no profit mixing
+ * Uses the transfers table directly
  */
 export async function recordCashTransfer(
   userId: string,
@@ -89,18 +90,30 @@ export async function recordCashTransfer(
   amount: number,
   notes?: string,
   fixedNumberId?: string
-): Promise<FinancialTransaction> {
-  const relatedEntity: RelatedEntityType = fixedNumberId
-    ? "phone_number"
-    : "cash_transfer";
+): Promise<{ id: string }> {
+  // Insert directly into transfers table
+  const { data, error } = await supabase
+    .from("transfers")
+    .insert({
+      user_id: userId,
+      amount,
+      type,
+      notes: notes ?? null,
+      fixed_number_id: fixedNumberId ?? null,
+      is_archived: false,
+    })
+    .select("id")
+    .single();
 
-  return createTransaction(userId, {
-    transaction_type: type,
-    amount,
-    related_entity: relatedEntity,
-    related_entity_id: fixedNumberId,
-    notes,
-  });
+  if (error) {
+    throw new TransactionError(
+      "Failed to create transfer",
+      "DB_ERROR",
+      error
+    );
+  }
+
+  return { id: data.id };
 }
 
 /**

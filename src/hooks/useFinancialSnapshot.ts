@@ -39,7 +39,7 @@ export function useFinancialSnapshot(period: SnapshotPeriod = "today") {
       const startStr = format(start, "yyyy-MM-dd'T'HH:mm:ss");
       const endStr = format(end, "yyyy-MM-dd'T'HH:mm:ss");
       
-      // Fetch transfers for the period (confirmed only - not archived)
+      // Fetch transfers for the period (confirmed only - not archived) from transfers table
       const { data: transfers, error: transfersError } = await supabase
         .from("transfers")
         .select("type, amount, profit")
@@ -92,10 +92,10 @@ export function useFinancialSnapshot(period: SnapshotPeriod = "today") {
       let debtsYouOwe = 0;
       
       (debts || []).forEach((d) => {
-        if (d.type === "given") {
-          debtsOwedToYou++;
-        } else if (d.type === "received") {
-          debtsYouOwe++;
+        if (d.type === "owed_to_me") {
+          debtsOwedToYou += Number(d.amount);
+        } else if (d.type === "owed_by_me") {
+          debtsYouOwe += Number(d.amount);
         }
       });
       
