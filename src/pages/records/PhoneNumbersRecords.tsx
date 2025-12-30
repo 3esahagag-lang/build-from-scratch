@@ -55,22 +55,24 @@ export default function PhoneNumbersRecords() {
   });
 
   // SINGLE SOURCE OF TRUTH: Fetch all transfers with fixed_number_id from transfers table
-  const { data: allTransfers = [] } = useQuery({
-    queryKey: ["phone-numbers-usage", user?.id],
-    enabled: !!user?.id,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transfers")
-        .select("id, amount, notes, created_at, profit, fixed_number_id")
-        .eq("user_id", user!.id)
-        .not("fixed_number_id", "is", null)
-        .eq("is_archived", false)
-        .order("created_at", { ascending: false });
+  const { data: allTransfers = [], refetch } = useQuery({
+  queryKey: ["phone-numbers-usage", user?.id],
+  enabled: !!user?.id,
+  staleTime: 0,
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("transfers")
+      .select("id, amount, notes, created_at, profit, fixed_number_id")
+      .eq("user_id", user!.id)
+      .not("fixed_number_id", "is", null)
+      .eq("is_archived", false)
+      .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      return data as Transfer[];
-    },
-  });
+    if (error) throw error;
+    return data as Transfer[];
+  },
+});
+      
 
   // Client-side aggregation: count and sum per fixed_number_id
   const transferStats = useMemo(() => {
