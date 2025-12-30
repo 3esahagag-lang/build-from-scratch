@@ -79,17 +79,24 @@ export default function FixedNumberDetails() {
   /* ===============================
      Monthly usage - calculated from transfers table
   =============================== */
-  const monthlyUsage = (() => {
-    if (!transfers || transfers.length === 0) return 0;
+  /* ===============================
+   Monthly usage (CALCULATED DIRECTLY FROM DB DATA)
+=============================== */
+const monthlyUsage = (() => {
+  if (!transfers || transfers.length === 0) return 0;
 
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
 
-    return transfers
-      .filter((t) => new Date(t.created_at) >= startOfMonth)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-  })();
+  return transfers
+    .filter(
+      (t) =>
+        t.fixed_number_id === id &&
+        new Date(t.created_at) >= startOfMonth
+    )
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+})();
 
   const limit = Number(fixedNumber?.monthly_limit || 0);
   const percentage = limit > 0 ? Math.min((monthlyUsage / limit) * 100, 100) : 0;
