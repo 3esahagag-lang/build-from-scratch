@@ -219,6 +219,11 @@ const { data: monthlyUsage } = useQuery({
   queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage"] });
   queryClient.invalidateQueries({ queryKey: ["fixed-number-transfers"] });
 
+   queryClient.invalidateQueries({
+   queryKey: ["fixed-number-monthly-usage", user?.id],
+   });
+   
+      
   // Records
   queryClient.invalidateQueries({ queryKey: ["phone-number-transfers"] });
 
