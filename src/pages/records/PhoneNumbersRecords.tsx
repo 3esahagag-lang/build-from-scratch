@@ -81,6 +81,11 @@ export default function PhoneNumbersRecords() {
       .eq("fixed_number_id", selectedNumberId)
       .eq("is_archived", false)
       .order("created_at", { ascending: false });
+  
+    console.log("RECORDS QUERY", {
+  user_id: user!.id,
+  fixed_number_id: selectedNumberId,
+});
 
     if (error) throw error;
     return data as Transfer[];
