@@ -75,23 +75,18 @@ export default function PhoneNumbersRecords() {
   enabled: !!selectedNumberId && !!user?.id,
   queryFn: async () => {
     const { data, error } = await supabase
+      .schema("public")
       .from("transfers")
-      .select("id, amount, notes, created_at, profit, fixed_number_id")
-      .eq("user_id", user!.id)          // ✅ السطر الحاسم
+      .select("id, amount, notes, created_at, profit")
+      .eq("user_id", user!.id)
       .eq("fixed_number_id", selectedNumberId)
       .eq("is_archived", false)
       .order("created_at", { ascending: false });
-  
-    console.log("RECORDS QUERY", {
-  user_id: user!.id,
-  fixed_number_id: selectedNumberId,
-});
 
     if (error) throw error;
     return data as Transfer[];
   },
 });
-
   /* ===============================
      Transfer counts per number
   =============================== */
