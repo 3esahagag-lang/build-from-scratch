@@ -2,14 +2,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 import { useToast } from "./use-toast";
-import { FIXED_NUMBERS_QUERY_KEYS, TRANSFERS_QUERY_KEYS } from "@/lib/queryKeys";
 import {
   createPendingTransfer,
   createPendingDebt,
   executeMultiStepOperation,
   AtomicTransactionError,
 } from "@/lib/transactions/atomic";
-
 
 /**
  * Hook for creating transfers with two-phase commit
@@ -36,15 +34,17 @@ export function useAtomicTransfer() {
         await pending.confirm();
         return { success: true, transferId: pending.transferId };
       } catch (error) {
-        // Auto-rollback on confirm failure
         await pending.cancel();
         throw error;
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: TRANSFERS_QUERY_KEYS.all(user?.id) });
-      queryClient.invalidateQueries({ queryKey: FIXED_NUMBERS_QUERY_KEYS.all(user?.id) });
-      queryClient.invalidateQueries({ queryKey: ["ledger"] });
+      queryClient.invalidateQueries({ queryKey: ["transfers"] });
+      queryClient.invalidateQueries({ queryKey: ["transfers-summary", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["ledger", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["phone-numbers-usage", user?.id] });
+
       toast({
         title: "تم تسجيل التحويل",
         description: "تم حفظ التحويل بنجاح",
@@ -87,8 +87,9 @@ export function useAtomicDebt() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["debts"] });
-      queryClient.invalidateQueries({ queryKey: ["ledger"] });
+      queryClient.invalidateQueries({ queryKey: ["debts", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["ledger", user?.id] });
+
       toast({
         title: "تم تسجيل الدين",
         description: "تم حفظ الدين بنجاح",
@@ -108,6 +109,7 @@ export function useAtomicDebt() {
  * Hook for executing multi-step operations atomically
  */
 export function useAtomicMultiStep<T>() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -124,12 +126,13 @@ export function useAtomicMultiStep<T>() {
       return result;
     },
     onSuccess: () => {
-      // Invalidate all financial queries
-      queryClient.invalidateQueries({ queryKey: TRANSFERS_QUERY_KEYS.all(user?.id) });
-      queryClient.invalidateQueries({ queryKey: FIXED_NUMBERS_QUERY_KEYS.all(user?.id) });
-      queryClient.invalidateQueries({ queryKey: ["debts"] });
-      queryClient.invalidateQueries({ queryKey: ["ledger"] });
-      queryClient.invalidateQueries({ queryKey: ["profits"] });
+      queryClient.invalidateQueries({ queryKey: ["transfers"] });
+      queryClient.invalidateQueries({ queryKey: ["transfers-summary", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["debts", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["ledger", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["profits", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["phone-numbers-usage", user?.id] });
     },
     onError: (error: AtomicTransactionError) => {
       toast({
