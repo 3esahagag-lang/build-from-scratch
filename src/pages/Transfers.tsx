@@ -21,11 +21,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import FixedNumberCard from "@/components/FixedNumberCard";
 import { NetworkStatus } from "@/components/OperationFeedback";
 import { useNetworkStatus } from "@/hooks/useOperationState";
-// هام: استدعاء الهوك الذري للحفظ في الجدول الصحيح
+// ✅ استيراد الهوك الذري الصحيح
 import { useAtomicTransfer } from "@/hooks/useAtomicTransactions"; 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { FIXED_NUMBERS_QUERY_KEYS } from "@/lib/queryKeys";
+import { toast } from "sonner";
 
 export default function Transfers() {
   const { user } = useAuth();
@@ -44,7 +45,7 @@ export default function Transfers() {
   const [newNumberPhone, setNewNumberPhone] = useState("");
   const [newNumberLimit, setNewNumberLimit] = useState("");
 
-  // 🔥 التصحيح: استخدام الهوك الذري الذي يكتب في جدول transfers الموحد
+  // 🔥 الخطوة الحاسمة: استخدام الهوك الذي يكتب في جدول transfers
   const atomicTransfer = useAtomicTransfer();
 
   // Fetch Fixed Numbers
@@ -62,7 +63,7 @@ export default function Transfers() {
     enabled: !!user,
   });
 
-  // معالجة التحويل العام
+  // ✅ معالجة التحويل العام
   const handleTransferSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount) return;
@@ -72,22 +73,23 @@ export default function Transfers() {
       type: transferType,
       notes: notes,
       profit: parseFloat(profit) || 0,
-      fixedNumberId: undefined, // تحويل عام
+      fixedNumberId: undefined, // تحويل عام بدون رقم
     }, {
       onSuccess: () => {
         setAmount("");
         setProfit("");
         setNotes("");
+        toast.success("تم تسجيل العملية بنجاح");
       }
     });
   };
 
-  // معالجة تحويل الرقم الثابت
+  // ✅ معالجة تحويل الرقم الثابت (هنا كان الخطأ سابقاً)
   const handleFixedNumberTransfer = (id: string, data: { amount: number; profit?: number; notes?: string }) => {
-    // 🔥 التصحيح: تمرير المعرف لربط التحويل بالرقم الثابت في نفس الجدول
+    // نمرر الـ ID ليتم ربطه في جدول transfers
     atomicTransfer.mutate({
       amount: data.amount,
-      type: "expense", // التحويلات للأرقام عادة مصروف
+      type: "expense", // دائماً مصروف بالنسبة للأرقام
       notes: data.notes || "تحويل رصيد",
       profit: data.profit || 0,
       fixedNumberId: id, // ✅ الربط الصحيح
@@ -251,7 +253,7 @@ export default function Transfers() {
                   name={num.name}
                   phoneNumber={num.phone_number || ""}
                   limit={num.monthly_limit || 0}
-                  used={0} // سيتم حسابه تلقائياً من البيانات الجديدة
+                  used={0} // سيتم التحديث تلقائياً
                   isSubmitting={atomicTransfer.isPending}
                   onSubmitTransfer={handleFixedNumberTransfer}
                 />
