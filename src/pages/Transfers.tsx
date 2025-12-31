@@ -127,7 +127,8 @@ export default function Transfers() {
 });
 
   // Add regular transfer mutation
- const addFixedNumberTransfer = useMutation({
+// ✅ التعريف الوحيد الصحيح
+const addFixedNumberTransfer = useMutation({
   mutationFn: async ({
     fixedNumberId,
     transferAmount,
@@ -155,12 +156,9 @@ export default function Transfers() {
   },
 
   onSuccess: () => {
-    // 🔴 دي أهم سطور في المشروع كله
-    queryClient.invalidateQueries({ queryKey: ["transfers"] });
-    queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
-    queryClient.invalidateQueries({ queryKey: ["fixed-numbers", user?.id] });
     queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage", user?.id] });
-    queryClient.invalidateQueries({ queryKey: ["records-phone-numbers"] });
+    queryClient.invalidateQueries({ queryKey: ["transfers-summary", user?.id] });
+    queryClient.invalidateQueries({ queryKey: ["fixed-numbers", user?.id] });
 
     toast({ title: "تم تسجيل التحويل على الرقم بنجاح" });
     setExpandedNumberId(null);
