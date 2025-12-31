@@ -85,39 +85,60 @@ export default function Inventory() {
     },
   });
 
-  // Add item mutation
+  // 🔥 إصلاح مشكلة الحفظ: دالة إضافة صنف آمنة
   const addItem = useMutation({
     mutationFn: async () => {
+      if (!user?.id) throw new Error("يجب تسجيل الدخول");
+
+      // 1. تنظيف البيانات: تحويل النص الفارغ إلى null لتجنب أخطاء قاعدة البيانات
+      const cleanCategoryId = selectedCategoryId && selectedCategoryId !== "all" 
+        ? selectedCategoryId 
+        : null;
+
+      const cleanQuantity = parseInt(newItemQuantity) || 0;
+      
+      // 2. إدخال الصنف أولاً
       const { data: item, error: itemError } = await supabase
         .from("inventory_items")
         .insert({
-          user_id: user!.id,
-          category_id: selectedCategoryId || null,
+          user_id: user.id,
+          category_id: cleanCategoryId, // ✅ الآن هذا الحقل آمن
           name: newItemName,
-          quantity: parseInt(newItemQuantity) || 0,
+          quantity: cleanQuantity,
           profit_per_unit: parseFloat(newItemProfitPerUnit) || 0,
           unit_type: newItemUnitType,
+          is_archived: false
         })
-        .select()
+        .select("id")
         .single();
 
       if (itemError) throw itemError;
+      if (!item) throw new Error("فشل إنشاء المنتج");
 
-      // Log the addition
-      if (parseInt(newItemQuantity) > 0) {
-        await supabase.from("inventory_logs").insert({
-          user_id: user!.id,
+      // 3. إدخال السجل (Log) في خطوة منفصلة
+      // حتى لو فشل السجل، المنتج الأساسي تم حفظه
+      if (cleanQuantity > 0) {
+        const { error: logError } = await supabase.from("inventory_logs").insert({
+          user_id: user.id,
           item_id: item.id,
-          quantity_change: parseInt(newItemQuantity),
+          quantity_change: cleanQuantity,
           action: "add",
           profit: 0,
         });
+        
+        if (logError) {
+          console.error("Failed to create log:", logError);
+        }
       }
+      
+      return item;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-logs"] });
-      toast({ title: "تم إضافة الصنف" });
+      toast({ title: "تم إضافة الصنف بنجاح" });
+      
+      // Reset Form
       setNewItemName("");
       setNewItemQuantity("");
       setNewItemProfitPerUnit("");
@@ -125,6 +146,13 @@ export default function Inventory() {
       setSelectedCategoryId("");
       setItemDialogOpen(false);
     },
+    onError: (err) => {
+      toast({ 
+        title: "خطأ", 
+        description: err.message, 
+        variant: "destructive" 
+      });
+    }
   });
 
   // Group items by category
@@ -273,7 +301,7 @@ export default function Inventory() {
           </div>
         </div>
 
-        {/* Items List - Display Only (No Selling) */}
+        {/* Items List */}
         {groupedItems && Object.keys(groupedItems).length > 0 ? (
           <div className="space-y-4">
             {Object.entries(groupedItems).map(([categoryName, categoryItems]) => (
