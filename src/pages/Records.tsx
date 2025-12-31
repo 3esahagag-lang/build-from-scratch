@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TrendingUp, Package, HandCoins, ChevronLeft, Hash, Banknote, ArrowUp, ArrowDown, Layers, RefreshCw, CheckCircle2, XCircle, Phone, Gauge } from "lucide-react";
 import { Link } from "react-router-dom";
+import { TRANSFERS_QUERY_KEYS } from "@/lib/queryKeys";
+
 
 interface BadgeProps {
   icon: React.ReactNode;
@@ -54,15 +56,16 @@ function RecordCard({ icon, title, badges, to }: RecordCardProps) {
 export default function Records() {
   const { user } = useAuth();
 
-  // Fetch transfers count and total
+  // Fetch transfers count and total (general transfers only: fixed_number_id IS NULL)
   const { data: transfersData } = useQuery({
-    queryKey: ["records-transfers-summary", user?.id],
+    queryKey: TRANSFERS_QUERY_KEYS.generalSummary(user?.id),
     queryFn: async () => {
       const { data: transfers, error } = await supabase
         .from("transfers")
         .select("amount, type")
         .eq("is_archived", false)
-        .eq("user_id", user!.id);
+        .eq("user_id", user!.id)
+        .is("fixed_number_id", null);
 
       if (error) throw error;
 
@@ -83,7 +86,7 @@ export default function Records() {
 
   // Fetch phone numbers summary - aggregated from transfers table
   const { data: phoneNumbersData } = useQuery({
-    queryKey: ["records-phone-numbers-summary", user?.id],
+    queryKey: TRANSFERS_QUERY_KEYS.recordsPhoneNumbersSummary(user?.id),
     queryFn: async () => {
       // Fetch phone numbers
       const { data: numbers, error: numbersError } = await supabase
@@ -96,24 +99,29 @@ export default function Records() {
       // Fetch transfers linked to phone numbers from transfers table
       const { data: transfers, error: transfersError } = await supabase
         .from("transfers")
-        .select("amount, fixed_number_id")
+        .select("amount, profit, fixed_number_id")
         .eq("user_id", user!.id)
         .not("fixed_number_id", "is", null)
         .eq("is_archived", false);
 
       if (transfersError) throw transfersError;
 
-      const activeCount = numbers?.filter(n => !n.is_disabled).length || 0;
-      const totalTransferred = transfers?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+      const activeCount = numbers?.filter((n) => !n.is_disabled).length || 0;
+      const totalTransferred =
+        transfers?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+      const totalProfit =
+        transfers?.reduce((sum, t) => sum + Number(t.profit || 0), 0) || 0;
 
       return {
         count: numbers?.length || 0,
         activeCount,
         totalTransferred,
+        totalProfit,
       };
     },
     enabled: !!user,
   });
+
 
   // Fetch inventory summary
   const { data: inventoryData } = useQuery({

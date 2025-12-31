@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronLeft } from "lucide-react";
 import { useState, useMemo } from "react";
+import { TRANSFERS_QUERY_KEYS } from "@/lib/queryKeys";
 
 interface PhoneNumber {
   id: string;
@@ -21,6 +22,7 @@ interface Transfer {
   profit: number | null;
   fixed_number_id: string | null;
 }
+
 
 function formatDate(date: string): string {
   const d = new Date(date);
@@ -55,41 +57,43 @@ export default function PhoneNumbersRecords() {
   });
 
   // SINGLE SOURCE OF TRUTH: Fetch all transfers with fixed_number_id from transfers table
-  const { data: allTransfers = [], refetch } = useQuery({
-  queryKey: ["phone-numbers-usage", user?.id],
-  enabled: !!user?.id,
-  staleTime: 0,
-  queryFn: async () => {
-    const { data, error } = await supabase
-      .from("transfers")
-      .select("id, amount, notes, created_at, profit, fixed_number_id")
-      .eq("user_id", user!.id)
-      .not("fixed_number_id", "is", null)
-      .eq("is_archived", false)
-      .order("created_at", { ascending: false });
+  const { data: allTransfers = [] } = useQuery({
+    queryKey: TRANSFERS_QUERY_KEYS.fixedList(user?.id),
+    enabled: !!user?.id,
+    staleTime: 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transfers")
+        .select("id, amount, notes, created_at, profit, fixed_number_id")
+        .eq("user_id", user!.id)
+        .not("fixed_number_id", "is", null)
+        .eq("is_archived", false)
+        .order("created_at", { ascending: false });
 
-    if (error) throw error;
-    return data as Transfer[];
-  },
-});
-      
+      if (error) throw error;
+      return data as Transfer[];
+    },
+  });
 
-  // Client-side aggregation: count and sum per fixed_number_id
+  // Client-side aggregation: count, sum(amount), sum(profit) per fixed_number_id
   const transferStats = useMemo(() => {
-    const stats: Record<string, { count: number; totalAmount: number }> = {};
-    
+    const stats: Record<string, { count: number; totalAmount: number; totalProfit: number }> = {};
+
     allTransfers.forEach((t) => {
-      if (t.fixed_number_id) {
-        if (!stats[t.fixed_number_id]) {
-          stats[t.fixed_number_id] = { count: 0, totalAmount: 0 };
-        }
-        stats[t.fixed_number_id].count += 1;
-        stats[t.fixed_number_id].totalAmount += Number(t.amount);
+      if (!t.fixed_number_id) return;
+
+      if (!stats[t.fixed_number_id]) {
+        stats[t.fixed_number_id] = { count: 0, totalAmount: 0, totalProfit: 0 };
       }
+
+      stats[t.fixed_number_id].count += 1;
+      stats[t.fixed_number_id].totalAmount += Number(t.amount);
+      stats[t.fixed_number_id].totalProfit += Number(t.profit || 0);
     });
 
     return stats;
   }, [allTransfers]);
+
 
   // Filter transfers for selected number
   const numberTransfers = useMemo(() => {

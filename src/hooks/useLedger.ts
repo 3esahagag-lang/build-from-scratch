@@ -14,6 +14,8 @@ import {
 } from "@/lib/ledger";
 import type { RecordType, RecordStatus } from "@/lib/ledger";
 import { useToast } from "./use-toast";
+import { FIXED_NUMBERS_QUERY_KEYS, TRANSFERS_QUERY_KEYS } from "@/lib/queryKeys";
+
 
 // Query keys
 export const LEDGER_QUERY_KEYS = {
@@ -91,18 +93,19 @@ export function useLedgerSummary() {
 // Helper to invalidate ledger queries
 function useInvalidateLedgerQueries() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return () => {
     queryClient.invalidateQueries({ queryKey: LEDGER_QUERY_KEYS.all });
-    // Also invalidate related queries
-    queryClient.invalidateQueries({ queryKey: ["transfers"] });
-    queryClient.invalidateQueries({ queryKey: ["transfers-summary"] });
+
+    // Also invalidate related queries (single source of truth: transfers table)
+    queryClient.invalidateQueries({ queryKey: TRANSFERS_QUERY_KEYS.all(user?.id) });
+    queryClient.invalidateQueries({ queryKey: FIXED_NUMBERS_QUERY_KEYS.all(user?.id) });
     queryClient.invalidateQueries({ queryKey: ["debts"] });
-    queryClient.invalidateQueries({ queryKey: ["records"] });
-    queryClient.invalidateQueries({ queryKey: ["fixed-number-monthly-usage"] });
-    queryClient.invalidateQueries({ queryKey: ["phone-numbers-usage"] });
+    queryClient.invalidateQueries({ queryKey: ["profits"] });
   };
 }
+
 
 /**
  * Hook to reverse a transfer

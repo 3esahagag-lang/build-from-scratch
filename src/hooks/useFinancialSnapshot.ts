@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { startOfDay, startOfWeek, startOfMonth, endOfDay, format } from "date-fns";
+import { startOfDay, startOfWeek, startOfMonth, endOfDay } from "date-fns";
+
 
 export type SnapshotPeriod = "today" | "week" | "month";
 
@@ -36,8 +37,9 @@ export function useFinancialSnapshot(period: SnapshotPeriod = "today") {
       if (!user?.id) throw new Error("User not authenticated");
       
       const { start, end } = getPeriodRange(period);
-      const startStr = format(start, "yyyy-MM-dd'T'HH:mm:ss");
-      const endStr = format(end, "yyyy-MM-dd'T'HH:mm:ss");
+      const startStr = start.toISOString();
+      const endStr = end.toISOString();
+
       
       // Fetch transfers for the period (confirmed only - not archived) from transfers table
       const { data: transfers, error: transfersError } = await supabase

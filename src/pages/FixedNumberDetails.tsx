@@ -24,6 +24,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { FIXED_NUMBERS_QUERY_KEYS, TRANSFERS_QUERY_KEYS } from "@/lib/queryKeys";
+
 
 export default function FixedNumberDetails() {
   const { user } = useAuth();
@@ -41,13 +43,14 @@ export default function FixedNumberDetails() {
      Fetch fixed number
   =============================== */
   const { data: fixedNumber, isLoading: numberLoading } = useQuery({
-    queryKey: ["fixed-number", id],
+    queryKey: FIXED_NUMBERS_QUERY_KEYS.item(user?.id, id),
     enabled: !!user && !!id,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("fixed_numbers")
         .select("*")
         .eq("id", id)
+        .eq("user_id", user!.id)
         .maybeSingle();
 
       if (error) throw error;
@@ -59,7 +62,7 @@ export default function FixedNumberDetails() {
      Fetch transfers for this fixed number - from transfers table only
   =============================== */
   const { data: transfers = [], isLoading: transfersLoading } = useQuery({
-    queryKey: ["fixed-number-transfers", id, user?.id],
+    queryKey: TRANSFERS_QUERY_KEYS.byFixedNumber(user?.id, id),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transfers")
@@ -68,12 +71,13 @@ export default function FixedNumberDetails() {
         .eq("fixed_number_id", id)
         .eq("is_archived", false)
         .order("created_at", { ascending: false });
-        
+
       if (error) throw error;
       return data;
     },
     enabled: !!user && !!id,
   });
+
 
 
   /* ===============================
@@ -112,16 +116,20 @@ const monthlyUsage = (() => {
       monthly_limit?: number;
       is_disabled?: boolean;
     }) => {
+      if (!user?.id) throw new Error("User not authenticated");
+
       const { error } = await supabase
         .from("fixed_numbers")
         .update(updates)
-        .eq("id", id);
+        .eq("id", id)
+        .eq("user_id", user.id);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["fixed-number", id] });
-      queryClient.invalidateQueries({ queryKey: ["fixed-numbers"] });
+      queryClient.invalidateQueries({ queryKey: FIXED_NUMBERS_QUERY_KEYS.item(user?.id, id) });
+      queryClient.invalidateQueries({ queryKey: FIXED_NUMBERS_QUERY_KEYS.all(user?.id) });
+      queryClient.invalidateQueries({ queryKey: TRANSFERS_QUERY_KEYS.all(user?.id) });
       toast.success("تم تحديث البيانات");
       setEditDialogOpen(false);
     },
@@ -130,20 +138,25 @@ const monthlyUsage = (() => {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
+      if (!user?.id) throw new Error("User not authenticated");
+
       const { error } = await supabase
         .from("fixed_numbers")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .eq("user_id", user.id);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["fixed-numbers"] });
+      queryClient.invalidateQueries({ queryKey: FIXED_NUMBERS_QUERY_KEYS.all(user?.id) });
+      queryClient.invalidateQueries({ queryKey: TRANSFERS_QUERY_KEYS.all(user?.id) });
       toast.success("تم حذف الرقم");
       navigate("/transfers");
     },
     onError: () => toast.error("فشل الحذف"),
   });
+
 
   /* ===============================
      Helpers

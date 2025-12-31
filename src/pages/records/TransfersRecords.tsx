@@ -4,28 +4,31 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowRight, TrendingUp, ArrowUpCircle, Hash, Percent } from "lucide-react";
 import { Link } from "react-router-dom";
+import { TRANSFERS_QUERY_KEYS } from "@/lib/queryKeys";
 
 export default function TransfersRecords() {
   const { user } = useAuth();
 
   // Fetch general transfers only (no fixed_number_id)
   const { data: transfers } = useQuery({
-  queryKey: ["transfers-records", user?.id],
-  queryFn: async () => {
-    if (!user?.id) return [];
+    queryKey: TRANSFERS_QUERY_KEYS.generalList(user?.id),
+    queryFn: async () => {
+      if (!user?.id) return [];
 
-    const { data, error } = await supabase
-      .from("transfers")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("is_archived", false)
-      .order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("transfers")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("is_archived", false)
+        .is("fixed_number_id", null)
+        .order("created_at", { ascending: false });
 
-    if (error) throw error;
-    return data;
-  },
-  enabled: !!user?.id,
-});
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
 
   const formatDate = (date: string) => {
     const d = new Date(date);
