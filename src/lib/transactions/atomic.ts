@@ -85,48 +85,31 @@ export async function createPendingTransfer(
 ): Promise<{ transferId: string; confirm: () => Promise<boolean>; cancel: () => Promise<boolean> }> {
   // Step 1: Insert with pending state (we'll use is_archived as a soft state indicator)
   const { data: transfer, error } = await supabase
-    .from("transfers")
-    .insert({
-      user_id: userId,
-      amount: data.amount,
-      type: data.type,
-      notes: data.notes ?? null,
-      profit: data.profit ?? 0,
-      fixed_number_id: data.fixedNumberId ?? null,
-      is_archived: true, // Start as "pending" (archived = not active yet)
-    })
-    .select()
-    .single();
+  .from("transfers")
+  .insert({
+    user_id: userId,
+    amount: data.amount,
+    type: data.type,
+    notes: data.notes ?? null,
+    profit: data.profit ?? 0,
+    fixed_number_id: data.fixedNumberId ?? null,
+    is_archived: false, // ✅ تسجيل مباشر وفعال
+  })
+  .select()
+  .single();
 
-  if (error || !transfer) {
-    throw new AtomicTransactionError(
-      "فشل في إنشاء التحويل",
-      "CREATE_FAILED",
-      "init",
-      error
-    );
-  }
+if (error || !transfer) {
+  throw new AtomicTransactionError(
+    "فشل في إنشاء التحويل",
+    "CREATE_FAILED",
+    "init",
+    error
+  );
+}
 
-  return {
-    transferId: transfer.id,
-    // Confirm: make it active
-    confirm: async () => {
-      const { error: confirmError } = await supabase
-        .from("transfers")
-        .update({ is_archived: false })
-        .eq("id", transfer.id)
-        .eq("user_id", userId);
-
-      if (confirmError) {
-        throw new AtomicTransactionError(
-          "فشل في تأكيد التحويل",
-          "CONFIRM_FAILED",
-          "confirm",
-          confirmError
-        );
-      }
-      return true;
-    },
+return {
+  transferId: transfer.id,
+};
     // Cancel: delete the pending record
     cancel: async () => {
       const { error: cancelError } = await supabase
